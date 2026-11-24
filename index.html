@@ -1,0 +1,2511 @@
+<!DOCTYPE html>
+<html lang="zh-TW" class="dark">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Q哥筆電測試專用 (Q-Brother Laptop Diagnostic Tool)</title>
+    <!-- Tailwind CSS CDN -->
+    <script src="https://cdn.tailwindcss.com"></script>
+    <!-- FontAwesome 6 Icons CDN -->
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.1/css/all.min.css">
+    <script>
+        tailwind.config = {
+            darkMode: 'class',
+            theme: {
+                extend: {
+                    colors: {
+                        qorange: '#ff6600',
+                        qdark: '#0b0f19',
+                        qcard: '#151d2a'
+                    }
+                }
+            }
+        }
+    </script>
+    <style>
+        @import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&family=JetBrains+Mono:wght@400;600&display=swap');
+        
+        body {
+            font-family: 'Inter', system-ui, -apple-system, sans-serif;
+            user-select: none;
+            background-color: #080c14;
+        }
+
+        .code-font {
+            font-family: 'JetBrains Mono', monospace;
+        }
+
+        /* Glassmorphism Styles */
+        .glass-panel {
+            background: rgba(21, 29, 42, 0.75);
+            backdrop-filter: blur(16px);
+            border: 1px solid rgba(255, 255, 255, 0.08);
+        }
+
+        .glass-panel-hover:hover {
+            border-color: rgba(255, 102, 0, 0.4);
+            box-shadow: 0 10px 30px -10px rgba(255, 102, 0, 0.2);
+        }
+
+        /* Color Bar Pattern */
+        .bg-color-bars {
+            background: linear-gradient(to right, 
+                #ffffff 0% 12.5%, #ffff00 12.5% 25%, 
+                #00ffff 25% 37.5%, #00ff00 37.5% 50%, 
+                #ff00ff 50% 62.5%, #ff0000 62.5% 75%, 
+                #0000ff 75% 87.5%, #000000 87.5% 100%
+            );
+        }
+
+        /* Speaker Pulse Animation */
+        @keyframes ring-expand {
+            0% { transform: scale(0.9); opacity: 0.9; }
+            50% { transform: scale(1.15); opacity: 0.4; }
+            100% { transform: scale(0.9); opacity: 0.9; }
+        }
+        .animate-ring {
+            animation: ring-expand 1.2s infinite ease-in-out;
+        }
+
+        /* Keyboard Key Styles */
+        .key-cap {
+            background: #1e293b;
+            border: 1px solid #334155;
+            box-shadow: 0 3px 0 #0f172a;
+            transition: all 0.05s ease;
+        }
+        .key-cap.pressed {
+            background: #2563eb !important;
+            border-color: #60a5fa !important;
+            transform: translateY(2px);
+            box-shadow: 0 1px 0 #0f172a !important;
+            color: #ffffff !important;
+        }
+        .key-cap.tested {
+            background: #059669;
+            border-color: #34d399;
+            color: #ffffff;
+        }
+
+        /* Custom Scrollbar */
+        ::-webkit-scrollbar {
+            width: 6px;
+            height: 6px;
+        }
+        ::-webkit-scrollbar-track {
+            background: #0b0f19;
+        }
+        ::-webkit-scrollbar-thumb {
+            background: #1e293b;
+            border-radius: 4px;
+        }
+        ::-webkit-scrollbar-thumb:hover {
+            background: #ff6600;
+        }
+
+        /* Print Media Styles for PDF Export */
+        @media print {
+            body * {
+                visibility: hidden !important;
+            }
+            #printableReportArea, #printableReportArea * {
+                visibility: visible !important;
+            }
+            #printableReportArea {
+                position: absolute !important;
+                left: 0 !important;
+                top: 0 !important;
+                width: 100% !important;
+                background: #ffffff !important;
+                color: #000000 !important;
+                padding: 20px !important;
+            }
+            .no-print {
+                display: none !important;
+            }
+        }
+    </style>
+</head>
+<body class="text-slate-100 min-h-screen flex flex-col justify-between overflow-x-hidden">
+
+    <!-- Top Navigation Bar -->
+    <header class="w-full border-b border-slate-800/80 bg-slate-950/90 sticky top-0 z-40 backdrop-blur-md">
+        <div class="max-w-7xl mx-auto px-4 py-3 flex flex-wrap justify-between items-center gap-3">
+            <!-- Brand Logo -->
+            <div class="flex items-center gap-3 cursor-pointer" onclick="switchTab('dashboard')">
+                <div class="w-10 h-10 rounded-xl bg-gradient-to-br from-amber-500 to-orange-600 flex items-center justify-center text-white font-extrabold text-xl shadow-lg shadow-orange-500/20">
+                    Q
+                </div>
+                <div>
+                    <div class="flex items-center gap-2">
+                        <h1 class="font-extrabold text-lg text-white leading-tight tracking-wide">Q哥筆電測試專用</h1>
+                        <span class="text-[10px] bg-orange-500/20 text-orange-400 border border-orange-500/30 px-2 py-0.5 rounded-full font-bold">V5.0 無線外觀修復版</span>
+                    </div>
+                    <p class="text-xs text-slate-400">一次全檢 / 峯</p>
+                </div>
+            </div>
+
+            <!-- Header Quick Stats Badge -->
+            <div class="hidden lg:flex items-center gap-4 text-xs font-mono">
+                <div class="bg-slate-900 border border-slate-800 px-3 py-1.5 rounded-xl flex items-center gap-2">
+                    <i class="fa-solid fa-wifi text-sky-400"></i>
+                    <span id="navWifiStatus" class="text-slate-300">Wi-Fi: 檢測中...</span>
+                </div>
+                <div class="bg-slate-900 border border-slate-800 px-3 py-1.5 rounded-xl flex items-center gap-2">
+                    <i class="fa-solid fa-battery-half text-emerald-400"></i>
+                    <span id="navBatteryStatus" class="text-slate-300">電池: 檢測中...</span>
+                </div>
+                <div class="bg-slate-900 border border-slate-800 px-3 py-1.5 rounded-xl flex items-center gap-2">
+                    <i class="fa-solid fa-desktop text-amber-400"></i>
+                    <span id="navFpsStatus" class="text-slate-300">刷新率: 測量中...</span>
+                </div>
+            </div>
+
+            <!-- Home Return Button -->
+            <button onclick="switchTab('dashboard')" class="px-3.5 py-2 rounded-xl bg-slate-900 hover:bg-slate-800 text-xs font-semibold text-slate-200 border border-slate-700 transition-all flex items-center gap-2 active:scale-95">
+                <i class="fa-solid fa-border-all text-orange-400"></i> 檢測主選單
+            </button>
+        </div>
+    </header>
+
+    <!-- Main Content Area -->
+    <main class="max-w-7xl w-full mx-auto px-4 py-6 flex-1 flex flex-col justify-start">
+
+        <!-- TAB 0: Dashboard Overview -->
+        <section id="tab-dashboard" class="space-y-6 transition-all duration-300">
+            <div class="text-center max-w-2xl mx-auto space-y-2 mb-6">
+                <span class="px-3 py-1 bg-orange-500/10 text-orange-400 border border-orange-500/20 rounded-full text-xs font-bold tracking-wide">
+                    Q哥專用筆電全方位診斷系統
+                </span>
+                <h2 class="text-3xl font-extrabold text-white">請選擇要進行的檢測項目</h2>
+                <p class="text-slate-400 text-xs sm:text-sm">提供螢幕壞點、雙聲道喇叭、麥克風、鍵盤、鏡頭、觸控板、外觀標記、Wi-Fi/藍牙檢測與專業報告。</p>
+            </div>
+
+            <!-- Diagnostic Tools Grid (8 Tests + 1 Report) -->
+            <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-3 gap-4">
+                
+                <!-- 1. Screen Test Card -->
+                <div onclick="switchTab('screen')" class="glass-panel glass-panel-hover p-6 rounded-2xl cursor-pointer transition-all duration-300 group flex flex-col justify-between space-y-4">
+                    <div class="space-y-3">
+                        <div class="w-12 h-12 rounded-xl bg-gradient-to-tr from-sky-600 to-blue-400 flex items-center justify-center text-white shadow-lg group-hover:scale-110 transition-transform">
+                            <i class="fa-solid fa-display text-xl"></i>
+                        </div>
+                        <h3 class="text-lg font-bold text-white group-hover:text-sky-400 transition-colors">1. 螢幕壞點與色彩測試</h3>
+                        <p class="text-slate-400 text-xs leading-relaxed">
+                            全白、全紅、全綠、全黑、全藍、灰階與彩條測試，支援 ESC 快速退出與狀況勾選。
+                        </p>
+                    </div>
+                    <div class="text-xs font-bold text-sky-400 flex items-center gap-1 group-hover:translate-x-1 transition-transform">
+                        開始測試 <i class="fa-solid fa-arrow-right"></i>
+                    </div>
+                </div>
+
+                <!-- 2. Speaker Test Card -->
+                <div onclick="switchTab('speaker')" class="glass-panel glass-panel-hover p-6 rounded-2xl cursor-pointer transition-all duration-300 group flex flex-col justify-between space-y-4">
+                    <div class="space-y-3">
+                        <div class="w-12 h-12 rounded-xl bg-gradient-to-tr from-indigo-600 to-purple-400 flex items-center justify-center text-white shadow-lg group-hover:scale-110 transition-transform">
+                            <i class="fa-solid fa-volume-high text-xl"></i>
+                        </div>
+                        <h3 class="text-lg font-bold text-white group-hover:text-indigo-400 transition-colors">2. 喇叭 (揚聲器) 測試</h3>
+                        <p class="text-slate-400 text-xs leading-relaxed">
+                            左右聲道獨立發聲定位、即時音量滑軌調整、停止播放按鈕與破音雜音紀錄。
+                        </p>
+                    </div>
+                    <div class="text-xs font-bold text-indigo-400 flex items-center gap-1 group-hover:translate-x-1 transition-transform">
+                        開始測試 <i class="fa-solid fa-arrow-right"></i>
+                    </div>
+                </div>
+
+                <!-- 3. Mic Test Card -->
+                <div onclick="switchTab('mic')" class="glass-panel glass-panel-hover p-6 rounded-2xl cursor-pointer transition-all duration-300 group flex flex-col justify-between space-y-4">
+                    <div class="space-y-3">
+                        <div class="w-12 h-12 rounded-xl bg-gradient-to-tr from-emerald-600 to-teal-400 flex items-center justify-center text-white shadow-lg group-hover:scale-110 transition-transform">
+                            <i class="fa-solid fa-microphone text-xl"></i>
+                        </div>
+                        <h3 class="text-lg font-bold text-white group-hover:text-emerald-400 transition-colors">3. 麥克風與波段測試</h3>
+                        <p class="text-slate-400 text-xs leading-relaxed">
+                            實時 Canvas 聲波頻譜圖、分貝計、5秒錄音試聽與耳機即時聲音監聽(聽到自己聲音)。
+                        </p>
+                    </div>
+                    <div class="text-xs font-bold text-emerald-400 flex items-center gap-1 group-hover:translate-x-1 transition-transform">
+                        開始測試 <i class="fa-solid fa-arrow-right"></i>
+                    </div>
+                </div>
+
+                <!-- 4. Keyboard Test Card -->
+                <div onclick="switchTab('keyboard')" class="glass-panel glass-panel-hover p-6 rounded-2xl cursor-pointer transition-all duration-300 group flex flex-col justify-between space-y-4">
+                    <div class="space-y-3">
+                        <div class="w-12 h-12 rounded-xl bg-gradient-to-tr from-amber-600 to-orange-400 flex items-center justify-center text-white shadow-lg group-hover:scale-110 transition-transform">
+                            <i class="fa-solid fa-keyboard text-xl"></i>
+                        </div>
+                        <h3 class="text-lg font-bold text-white group-hover:text-amber-400 transition-colors">4. 鍵盤按鍵與防鬼鍵測試</h3>
+                        <p class="text-slate-400 text-xs leading-relaxed">
+                            筆電全鍵盤圖表、獨立數字小鍵盤 (Numpad)、編輯與方向鍵區防鬼鍵測試。
+                        </p>
+                    </div>
+                    <div class="text-xs font-bold text-amber-400 flex items-center gap-1 group-hover:translate-x-1 transition-transform">
+                        開始測試 <i class="fa-solid fa-arrow-right"></i>
+                    </div>
+                </div>
+
+                <!-- 5. Camera Test Card -->
+                <div onclick="switchTab('camera')" class="glass-panel glass-panel-hover p-6 rounded-2xl cursor-pointer transition-all duration-300 group flex flex-col justify-between space-y-4">
+                    <div class="space-y-3">
+                        <div class="w-12 h-12 rounded-xl bg-gradient-to-tr from-rose-600 to-pink-400 flex items-center justify-center text-white shadow-lg group-hover:scale-110 transition-transform">
+                            <i class="fa-solid fa-camera text-xl"></i>
+                        </div>
+                        <h3 class="text-lg font-bold text-white group-hover:text-rose-400 transition-colors">5. 筆電鏡頭 (Webcam) 測試</h3>
+                        <p class="text-slate-400 text-xs leading-relaxed">
+                            即時攝影機預覽、畫面鏡像切換、解像度與 FPS 幀率檢測、一鍵快照拍攝。
+                        </p>
+                    </div>
+                    <div class="text-xs font-bold text-rose-400 flex items-center gap-1 group-hover:translate-x-1 transition-transform">
+                        開始測試 <i class="fa-solid fa-arrow-right"></i>
+                    </div>
+                </div>
+
+                <!-- 6. Trackpad Test Card -->
+                <div onclick="switchTab('trackpad')" class="glass-panel glass-panel-hover p-6 rounded-2xl cursor-pointer transition-all duration-300 group flex flex-col justify-between space-y-4">
+                    <div class="space-y-3">
+                        <div class="w-12 h-12 rounded-xl bg-gradient-to-tr from-fuchsia-600 to-pink-500 flex items-center justify-center text-white shadow-lg group-hover:scale-110 transition-transform">
+                            <i class="fa-solid fa-computer-mouse text-xl"></i>
+                        </div>
+                        <h3 class="text-lg font-bold text-white group-hover:text-fuchsia-400 transition-colors">6. 觸控板與滑鼠測試</h3>
+                        <p class="text-slate-400 text-xs leading-relaxed">
+                            左右中鍵點擊測試、滾輪滾動檢測、軌跡繪圖平滑度測試與多點觸控。
+                        </p>
+                    </div>
+                    <div class="text-xs font-bold text-fuchsia-400 flex items-center gap-1 group-hover:translate-x-1 transition-transform">
+                        開始測試 <i class="fa-solid fa-arrow-right"></i>
+                    </div>
+                </div>
+
+                <!-- 7. Appearance Test Card -->
+                <div onclick="switchTab('appearance')" class="glass-panel glass-panel-hover p-6 rounded-2xl cursor-pointer transition-all duration-300 group flex flex-col justify-between space-y-4 border border-teal-500/30 bg-teal-500/5">
+                    <div class="space-y-3">
+                        <div class="w-12 h-12 rounded-xl bg-gradient-to-tr from-teal-500 to-emerald-400 flex items-center justify-center text-white shadow-lg group-hover:scale-110 transition-transform">
+                            <i class="fa-solid fa-pen-ruler text-xl"></i>
+                        </div>
+                        <h3 class="text-lg font-bold text-white group-hover:text-teal-400 transition-colors">7. 外觀瑕疵標記與配件檢查</h3>
+                        <p class="text-slate-400 text-xs leading-relaxed">
+                            筆電 A/B/C/D 四面傷痕畫板標記、轉軸螺絲與變壓器隨附狀態紀錄。
+                        </p>
+                    </div>
+                    <div class="text-xs font-bold text-teal-400 flex items-center gap-1 group-hover:translate-x-1 transition-transform">
+                        進行外觀標記 <i class="fa-solid fa-arrow-right"></i>
+                    </div>
+                </div>
+
+                <!-- 8. Wi-Fi & Bluetooth Test Card -->
+                <div onclick="switchTab('wifibt')" class="glass-panel glass-panel-hover p-6 rounded-2xl cursor-pointer transition-all duration-300 group flex flex-col justify-between space-y-4 border border-sky-500/30 bg-sky-500/5">
+                    <div class="space-y-3">
+                        <div class="w-12 h-12 rounded-xl bg-gradient-to-tr from-sky-500 to-cyan-400 flex items-center justify-center text-white shadow-lg group-hover:scale-110 transition-transform">
+                            <i class="fa-solid fa-wifi text-xl"></i>
+                        </div>
+                        <h3 class="text-lg font-bold text-white group-hover:text-sky-400 transition-colors">8. Wi-Fi 無線網路與藍牙測試</h3>
+                        <p class="text-slate-400 text-xs leading-relaxed">
+                            Web Bluetooth 晶片與周邊搜尋、Wi-Fi Ping 延遲測試與 CMD 周邊熱點掃描指令。
+                        </p>
+                    </div>
+                    <div class="text-xs font-bold text-sky-400 flex items-center gap-1 group-hover:translate-x-1 transition-transform">
+                        無線功能測試 <i class="fa-solid fa-arrow-right"></i>
+                    </div>
+                </div>
+
+                <!-- 9. System Specs & PDF Report Card -->
+                <div onclick="switchTab('system')" class="glass-panel glass-panel-hover p-6 rounded-2xl cursor-pointer transition-all duration-300 group flex flex-col justify-between space-y-4 border border-amber-500/30 bg-amber-500/5">
+                    <div class="space-y-3">
+                        <div class="w-12 h-12 rounded-xl bg-gradient-to-tr from-orange-500 to-amber-400 flex items-center justify-center text-white shadow-lg group-hover:scale-110 transition-transform">
+                            <i class="fa-solid fa-file-contract text-xl"></i>
+                        </div>
+                        <h3 class="text-lg font-bold text-white group-hover:text-orange-400 transition-colors">9. 電池規格與 PDF 檢測報告</h3>
+                        <p class="text-slate-400 text-xs leading-relaxed">
+                            匯集硬體檢測與外觀標記結果，填寫電池健康度，產出專業 PDF 檢測診斷單。
+                        </p>
+                    </div>
+                    <div class="text-xs font-bold text-orange-400 flex items-center gap-1 group-hover:translate-x-1 transition-transform">
+                        前往產出報告 <i class="fa-solid fa-arrow-right"></i>
+                    </div>
+                </div>
+
+            </div>
+        </section>
+
+        <!-- TAB 1: Screen Pixel Test Module -->
+        <section id="tab-screen" class="hidden space-y-6 max-w-4xl mx-auto w-full">
+            <div class="flex justify-between items-center border-b border-slate-800 pb-4">
+                <div>
+                    <h2 class="text-2xl font-bold text-white flex items-center gap-2">
+                        <i class="fa-solid fa-display text-sky-400"></i> 1. 螢幕壞點與色彩測試
+                    </h2>
+                    <p class="text-xs text-slate-400 mt-1">進入純色全螢幕測試壞點 (Bright/Dark Dead Pixels) 與色準</p>
+                </div>
+                <button onclick="startFullscreenScreenTest()" class="px-5 py-2.5 bg-sky-600 hover:bg-sky-500 text-white font-bold text-xs rounded-xl shadow-lg transition-all active:scale-95 flex items-center gap-2">
+                    <i class="fa-solid fa-expand"></i> 開啟全螢幕純色測試
+                </button>
+            </div>
+
+            <div class="glass-panel rounded-2xl p-6 space-y-6">
+                <h3 class="text-sm font-bold text-slate-200">測試顏色順序與指南：</h3>
+                <div class="grid grid-cols-2 sm:grid-cols-4 gap-3 text-xs">
+                    <div class="p-3 bg-white text-slate-900 rounded-xl font-bold flex items-center justify-between">
+                        <span>1. 全白 (White)</span>
+                        <span class="w-3 h-3 rounded-full border border-slate-300 bg-white"></span>
+                    </div>
+                    <div class="p-3 bg-red-950/80 text-red-300 border border-red-800 rounded-xl font-bold flex items-center justify-between">
+                        <span>2. 全紅 (Red)</span>
+                        <span class="w-3 h-3 rounded-full bg-red-600"></span>
+                    </div>
+                    <div class="p-3 bg-emerald-950/80 text-emerald-300 border border-emerald-800 rounded-xl font-bold flex items-center justify-between">
+                        <span>3. 全綠 (Green)</span>
+                        <span class="w-3 h-3 rounded-full bg-emerald-500"></span>
+                    </div>
+                    <div class="p-3 bg-slate-950 text-slate-300 border border-slate-800 rounded-xl font-bold flex items-center justify-between">
+                        <span>4. 全黑 (Black)</span>
+                        <span class="w-3 h-3 rounded-full bg-black border border-slate-700"></span>
+                    </div>
+                    <div class="p-3 bg-blue-950/80 text-blue-300 border border-blue-800 rounded-xl font-bold flex items-center justify-between">
+                        <span>5. 全藍 (Blue)</span>
+                        <span class="w-3 h-3 rounded-full bg-blue-600"></span>
+                    </div>
+                    <div class="p-3 bg-slate-700 text-slate-100 rounded-xl font-bold flex items-center justify-between">
+                        <span>6. 50% 灰色 (Gray)</span>
+                        <span class="w-3 h-3 rounded-full bg-gray-500"></span>
+                    </div>
+                    <div class="p-3 bg-slate-900 text-amber-300 border border-slate-800 rounded-xl font-bold flex items-center justify-between col-span-2">
+                        <span>7. 標準色彩校正條 (Color Bars)</span>
+                        <i class="fa-solid fa-palette"></i>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Screen Test Checkbox Panel -->
+            <div class="glass-panel p-5 rounded-2xl space-y-3">
+                <h3 class="text-sm font-bold text-white">螢幕檢測結果勾選 (將記錄於報告) :</h3>
+                <div class="grid grid-cols-1 sm:grid-cols-3 gap-3 text-xs">
+                    <label class="flex items-center gap-2.5 p-3 bg-slate-900 rounded-xl border border-slate-800 cursor-pointer hover:border-slate-700">
+                        <input type="checkbox" id="chkScrNormal" checked onchange="toggleExclusiveChk('chkScrNormal', ['chkScrBright', 'chkScrDead', 'chkScrFlicker', 'chkScrBleed'])" class="w-4 h-4 rounded text-emerald-500 bg-slate-950">
+                        <span class="font-bold text-emerald-400">螢幕完全正常</span>
+                    </label>
+                    <label class="flex items-center gap-2.5 p-3 bg-slate-900 rounded-xl border border-slate-800 cursor-pointer hover:border-slate-700">
+                        <input type="checkbox" id="chkScrBright" onchange="uncheckNormal('chkScrNormal')" class="w-4 h-4 rounded text-orange-500 bg-slate-950">
+                        <span>有亮點 (Bright Spot)</span>
+                    </label>
+                    <label class="flex items-center gap-2.5 p-3 bg-slate-900 rounded-xl border border-slate-800 cursor-pointer hover:border-slate-700">
+                        <input type="checkbox" id="chkScrDead" onchange="uncheckNormal('chkScrNormal')" class="w-4 h-4 rounded text-orange-500 bg-slate-950">
+                        <span>有暗點/壞點 (Dead Pixel)</span>
+                    </label>
+                    <label class="flex items-center gap-2.5 p-3 bg-slate-900 rounded-xl border border-slate-800 cursor-pointer hover:border-slate-700">
+                        <input type="checkbox" id="chkScrFlicker" onchange="uncheckNormal('chkScrNormal')" class="w-4 h-4 rounded text-orange-500 bg-slate-950">
+                        <span>螢幕閃爍 / 殘影</span>
+                    </label>
+                    <label class="flex items-center gap-2.5 p-3 bg-slate-900 rounded-xl border border-slate-800 cursor-pointer hover:border-slate-700">
+                        <input type="checkbox" id="chkScrBleed" onchange="uncheckNormal('chkScrNormal')" class="w-4 h-4 rounded text-orange-500 bg-slate-950">
+                        <span>邊緣漏光 / 偏色</span>
+                    </label>
+                </div>
+                <div>
+                    <input type="text" id="noteScrText" placeholder="螢幕備註說明 (例如: 螢幕中央偏左有一微小亮點)" class="w-full p-2.5 bg-slate-950 rounded-xl border border-slate-800 text-slate-200 text-xs focus:border-orange-500 outline-none">
+                </div>
+            </div>
+
+            <!-- Step Navigation Buttons -->
+            <div class="flex justify-between items-center pt-4 border-t border-slate-800/80">
+                <button onclick="switchTab('dashboard')" class="px-5 py-2.5 bg-slate-900 hover:bg-slate-800 text-slate-300 font-semibold text-xs rounded-xl border border-slate-700 transition-all flex items-center gap-2 active:scale-95">
+                    <i class="fa-solid fa-arrow-left"></i> 回檢測主選單
+                </button>
+                <button onclick="switchTab('speaker')" class="px-5 py-2.5 bg-orange-500 hover:bg-orange-600 text-white font-bold text-xs rounded-xl shadow-lg shadow-orange-500/20 transition-all flex items-center gap-2 active:scale-95">
+                    下一項：2. 喇叭測試 <i class="fa-solid fa-arrow-right"></i>
+                </button>
+            </div>
+        </section>
+
+        <!-- TAB 2: Speaker Audio Test Module -->
+        <section id="tab-speaker" class="hidden space-y-6 max-w-4xl mx-auto w-full">
+            <div class="flex justify-between items-center border-b border-slate-800 pb-4">
+                <div>
+                    <h2 class="text-2xl font-bold text-white flex items-center gap-2">
+                        <i class="fa-solid fa-volume-high text-indigo-400"></i> 2. 喇叭 (揚聲器) 雙聲道測試
+                    </h2>
+                    <p class="text-xs text-slate-400 mt-1">獨立測試左聲道 (L) 與右聲道 (R) 定位，防破音檢測</p>
+                </div>
+                <div class="flex items-center gap-2.5">
+                    <span id="speakerStatusBadge" class="text-xs px-3 py-1 rounded-full bg-slate-900 text-slate-400 border border-slate-800">準備就緒</span>
+                    <button onclick="stopSpeakerTest()" class="px-4 py-1.5 rounded-full bg-slate-800 hover:bg-slate-700 text-slate-200 border border-slate-700 text-xs font-semibold transition-all active:scale-95 flex items-center gap-1.5">
+                        <i class="fa-solid fa-circle-stop text-rose-400"></i> 停止播放
+                    </button>
+                </div>
+            </div>
+
+            <!-- Speaker Visual Display Box -->
+            <div class="glass-panel rounded-3xl p-8 relative overflow-hidden flex flex-col items-center justify-center min-h-[200px]">
+                <div class="flex items-center justify-around w-full max-w-md relative z-10">
+                    <div id="spkBoxLeft" class="flex flex-col items-center gap-2 transition-all duration-300 opacity-40">
+                        <div class="w-20 h-20 rounded-full bg-slate-900 border-2 border-slate-700 flex items-center justify-center text-indigo-400 relative">
+                            <div id="spkRingLeft" class="absolute inset-0 rounded-full border-2 border-indigo-400/60 hidden animate-ring"></div>
+                            <i class="fa-solid fa-volume-low text-3xl"></i>
+                        </div>
+                        <span class="text-xs font-bold tracking-wider text-slate-300">左聲道 (LEFT)</span>
+                    </div>
+
+                    <div class="flex items-center gap-1.5 h-12">
+                        <div class="w-1.5 bg-indigo-500/40 h-4 rounded-full"></div>
+                        <div class="w-1.5 bg-indigo-500/40 h-8 rounded-full"></div>
+                        <div class="w-1.5 bg-indigo-500/40 h-12 rounded-full"></div>
+                        <div class="w-1.5 bg-indigo-500/40 h-8 rounded-full"></div>
+                        <div class="w-1.5 bg-indigo-500/40 h-4 rounded-full"></div>
+                    </div>
+
+                    <div id="spkBoxRight" class="flex flex-col items-center gap-2 transition-all duration-300 opacity-40">
+                        <div class="w-20 h-20 rounded-full bg-slate-900 border-2 border-slate-700 flex items-center justify-center text-indigo-400 relative">
+                            <div id="spkRingRight" class="absolute inset-0 rounded-full border-2 border-indigo-400/60 hidden animate-ring"></div>
+                            <i class="fa-solid fa-volume-high text-3xl"></i>
+                        </div>
+                        <span class="text-xs font-bold tracking-wider text-slate-300">右聲道 (RIGHT)</span>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Speaker Action Buttons -->
+            <div class="grid grid-cols-1 sm:grid-cols-3 gap-3">
+                <button onclick="playSpeakerTest('left')" class="p-4 rounded-2xl bg-slate-900 hover:bg-indigo-600/20 border border-slate-800 hover:border-indigo-500/50 transition-all text-center active:scale-95">
+                    <div class="text-indigo-400 font-bold text-sm mb-1">測試左聲道 (Left)</div>
+                    <div class="text-[11px] text-slate-400">僅讓左側喇叭發聲</div>
+                </button>
+                <button onclick="playSpeakerTest('both')" class="p-4 rounded-2xl bg-slate-900 hover:bg-emerald-600/20 border border-slate-800 hover:border-emerald-500/50 transition-all text-center active:scale-95">
+                    <div class="text-emerald-400 font-bold text-sm mb-1">測試雙聲道 (Stereo)</div>
+                    <div class="text-[11px] text-slate-400">兩側喇叭同時發聲</div>
+                </button>
+                <button onclick="playSpeakerTest('right')" class="p-4 rounded-2xl bg-slate-900 hover:bg-indigo-600/20 border border-slate-800 hover:border-indigo-500/50 transition-all text-center active:scale-95">
+                    <div class="text-indigo-400 font-bold text-sm mb-1">測試右聲道 (Right)</div>
+                    <div class="text-[11px] text-slate-400">僅讓右側喇叭發聲</div>
+                </button>
+            </div>
+
+            <!-- Volume Adjustment Control Panel -->
+            <div class="glass-panel p-4 rounded-2xl flex flex-col sm:flex-row items-center justify-between gap-4 border border-indigo-500/20">
+                <div class="flex items-center gap-3 text-xs font-bold text-slate-200">
+                    <i class="fa-solid fa-sliders text-indigo-400 text-sm"></i>
+                    <span>測試播放音量大小 (Volume Control) :</span>
+                </div>
+                <div class="flex items-center gap-3 w-full sm:w-72">
+                    <i class="fa-solid fa-volume-off text-slate-500 text-xs"></i>
+                    <input type="range" id="speakerVolSlider" min="0" max="100" value="50" oninput="updateSpeakerVolume(this.value)" class="w-full h-2 bg-slate-900 rounded-lg appearance-none cursor-pointer accent-indigo-500">
+                    <i class="fa-solid fa-volume-high text-indigo-400 text-xs"></i>
+                    <span id="speakerVolText" class="font-mono text-xs font-bold text-indigo-400 w-10 text-right">50%</span>
+                </div>
+            </div>
+
+            <!-- Speaker Test Checkbox Panel -->
+            <div class="glass-panel p-5 rounded-2xl space-y-3">
+                <h3 class="text-sm font-bold text-white">喇叭檢測結果勾選 :</h3>
+                <div class="grid grid-cols-1 sm:grid-cols-3 gap-3 text-xs">
+                    <label class="flex items-center gap-2.5 p-3 bg-slate-900 rounded-xl border border-slate-800 cursor-pointer hover:border-slate-700">
+                        <input type="checkbox" id="chkSpkNormal" checked onchange="toggleExclusiveChk('chkSpkNormal', ['chkSpkLeftSilent', 'chkSpkRightSilent', 'chkSpkDistort'])" class="w-4 h-4 rounded text-emerald-500 bg-slate-950">
+                        <span class="font-bold text-emerald-400">雙聲道發聲完全正常</span>
+                    </label>
+                    <label class="flex items-center gap-2.5 p-3 bg-slate-900 rounded-xl border border-slate-800 cursor-pointer hover:border-slate-700">
+                        <input type="checkbox" id="chkSpkLeftSilent" onchange="uncheckNormal('chkSpkNormal')" class="w-4 h-4 rounded text-orange-500 bg-slate-950">
+                        <span>左聲道無聲音</span>
+                    </label>
+                    <label class="flex items-center gap-2.5 p-3 bg-slate-900 rounded-xl border border-slate-800 cursor-pointer hover:border-slate-700">
+                        <input type="checkbox" id="chkSpkRightSilent" onchange="uncheckNormal('chkSpkNormal')" class="w-4 h-4 rounded text-orange-500 bg-slate-950">
+                        <span>右聲道無聲音</span>
+                    </label>
+                    <label class="flex items-center gap-2.5 p-3 bg-slate-900 rounded-xl border border-slate-800 cursor-pointer hover:border-slate-700">
+                        <input type="checkbox" id="chkSpkDistort" onchange="uncheckNormal('chkSpkNormal')" class="w-4 h-4 rounded text-orange-500 bg-slate-950">
+                        <span>聲音雜音 / 破音</span>
+                    </label>
+                </div>
+                <div>
+                    <input type="text" id="noteSpkText" placeholder="喇叭備註說明 (例如: 高音破音、左側大音量有雜音)" class="w-full p-2.5 bg-slate-950 rounded-xl border border-slate-800 text-slate-200 text-xs focus:border-orange-500 outline-none">
+                </div>
+            </div>
+
+            <!-- Step Navigation Buttons -->
+            <div class="flex justify-between items-center pt-4 border-t border-slate-800/80">
+                <button onclick="switchTab('screen')" class="px-5 py-2.5 bg-slate-900 hover:bg-slate-800 text-slate-300 font-semibold text-xs rounded-xl border border-slate-700 transition-all flex items-center gap-2 active:scale-95">
+                    <i class="fa-solid fa-arrow-left"></i> 上一項：1. 螢幕測試
+                </button>
+                <button onclick="switchTab('mic')" class="px-5 py-2.5 bg-orange-500 hover:bg-orange-600 text-white font-bold text-xs rounded-xl shadow-lg shadow-orange-500/20 transition-all flex items-center gap-2 active:scale-95">
+                    下一項：3. 麥克風測試 <i class="fa-solid fa-arrow-right"></i>
+                </button>
+            </div>
+        </section>
+
+        <!-- TAB 3: Microphone Test Module -->
+        <section id="tab-mic" class="hidden space-y-6 max-w-4xl mx-auto w-full">
+            <div class="flex justify-between items-center border-b border-slate-800 pb-4">
+                <div>
+                    <h2 class="text-2xl font-bold text-white flex items-center gap-2">
+                        <i class="fa-solid fa-microphone text-emerald-400"></i> 3. 麥克風與波段測試
+                    </h2>
+                    <p class="text-xs text-slate-400 mt-1">動態頻譜波紋顯示、分貝音量計與5秒錄音試聽</p>
+                </div>
+                <span id="micStatusBadge" class="text-xs px-3 py-1 rounded-full bg-slate-900 text-slate-400 border border-slate-800">等待開啟</span>
+            </div>
+
+            <div class="glass-panel rounded-3xl p-6 space-y-4">
+                <div class="relative w-full h-44 bg-slate-950 rounded-2xl overflow-hidden border border-slate-800 flex items-center justify-center">
+                    <canvas id="visualizerCanvas" class="w-full h-full block"></canvas>
+                    <div id="micPromptOverlay" class="absolute inset-0 bg-slate-950/90 backdrop-blur-sm flex flex-col items-center justify-center p-6 text-center space-y-3 z-10">
+                        <button onclick="startMicrophone()" class="px-5 py-2.5 bg-emerald-600 hover:bg-emerald-500 text-white font-bold text-xs rounded-xl shadow-lg transition-all active:scale-95 flex items-center gap-2">
+                            <i class="fa-solid fa-power-off"></i> 啟動麥克風收音
+                        </button>
+                    </div>
+                </div>
+
+                <div class="space-y-1.5">
+                    <div class="flex justify-between text-xs font-semibold">
+                        <span class="text-slate-400">收音即時音量 (RMS Volume)</span>
+                        <span id="dbValueText" class="font-mono text-emerald-400">0 %</span>
+                    </div>
+                    <div class="w-full bg-slate-900 rounded-full h-3 border border-slate-800 overflow-hidden p-0.5">
+                        <div id="volumeLevelBar" class="bg-gradient-to-r from-emerald-500 via-teal-400 to-rose-500 h-full rounded-full w-0 transition-all duration-75"></div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- 5s Recording & Loopback Monitor Controls -->
+            <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+                <div class="glass-panel p-5 rounded-2xl space-y-3">
+                    <div class="flex justify-between items-center">
+                        <h4 class="text-sm font-bold text-white flex items-center gap-2">
+                            <i class="fa-solid fa-circle-dot text-rose-500"></i> 5 秒快速錄音與試聽
+                        </h4>
+                        <span id="recordTimer" class="text-xs font-mono text-slate-400">00:00</span>
+                    </div>
+                    <p class="text-xs text-slate-400 leading-relaxed">錄製 5 秒語音並回放，檢查麥克風錄音品質是否清晰無雜音。</p>
+                    <div class="flex gap-2">
+                        <button id="startRecordBtn" onclick="toggleRecord5Sec()" disabled class="flex-1 py-2.5 bg-slate-900 disabled:opacity-50 hover:bg-rose-600 text-white font-semibold text-xs rounded-xl border border-slate-700 transition-all flex items-center justify-center gap-2">
+                            <i class="fa-solid fa-record-vinyl text-rose-400"></i> 開始 5 秒錄音
+                        </button>
+                        <button id="playRecordBtn" onclick="playRecordBuffer()" disabled class="px-4 py-2.5 bg-slate-900 disabled:opacity-50 hover:bg-emerald-600 text-white font-semibold text-xs rounded-xl border border-slate-700 transition-all flex items-center gap-1.5">
+                            <i class="fa-solid fa-play"></i> 試聽播放
+                        </button>
+                    </div>
+                </div>
+
+                <div class="glass-panel p-5 rounded-2xl space-y-3">
+                    <div class="flex justify-between items-center">
+                        <h4 class="text-sm font-bold text-white flex items-center gap-2">
+                            <i class="fa-solid fa-headphones text-sky-400"></i> 即時聲音監聽 (聽到自己聲音)
+                        </h4>
+                        <label class="relative inline-flex items-center cursor-pointer">
+                            <input type="checkbox" id="monitorToggle" disabled onchange="toggleMicMonitoring(this.checked)" class="sr-only peer">
+                            <div class="w-11 h-6 bg-slate-900 peer-focus:outline-none rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-slate-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-emerald-600"></div>
+                        </label>
+                    </div>
+                    <p class="text-xs text-slate-400 leading-relaxed">開啟開關可將麥克風收音即時透過喇叭/耳機輸出。建議配戴耳機測試，避免聲音回授產生高頻噪鳴。</p>
+                    <div id="feedbackWarning" class="text-[11px] text-amber-400 bg-amber-500/10 border border-amber-500/20 px-2.5 py-1.5 rounded-lg flex items-center gap-1.5 hidden">
+                        <i class="fa-solid fa-triangle-exclamation"></i> 監聽運作中：已開啟即時麥克風聲音回放。
+                    </div>
+                </div>
+            </div>
+
+            <!-- Mic Checkbox Panel -->
+            <div class="glass-panel p-5 rounded-2xl space-y-3">
+                <h3 class="text-sm font-bold text-white">麥克風檢測結果登記 :</h3>
+                <div class="grid grid-cols-1 sm:grid-cols-3 gap-3 text-xs">
+                    <label class="flex items-center gap-2.5 p-3 bg-slate-900 rounded-xl border border-slate-800 cursor-pointer hover:border-slate-700">
+                        <input type="checkbox" id="chkMicNormal" checked onchange="toggleExclusiveChk('chkMicNormal', ['chkMicSilent', 'chkMicNoise'])" class="w-4 h-4 rounded text-emerald-500 bg-slate-950">
+                        <span class="font-bold text-emerald-400">收音與錄音完全正常</span>
+                    </label>
+                    <label class="flex items-center gap-2.5 p-3 bg-slate-900 rounded-xl border border-slate-800 cursor-pointer hover:border-slate-700">
+                        <input type="checkbox" id="chkMicSilent" onchange="uncheckNormal('chkMicNormal')" class="w-4 h-4 rounded text-orange-500 bg-slate-950">
+                        <span>麥克風無聲音 / 無法收音</span>
+                    </label>
+                    <label class="flex items-center gap-2.5 p-3 bg-slate-900 rounded-xl border border-slate-800 cursor-pointer hover:border-slate-700">
+                        <input type="checkbox" id="chkMicNoise" onchange="uncheckNormal('chkMicNormal')" class="w-4 h-4 rounded text-orange-500 bg-slate-950">
+                        <span>雜音過大 / 音量過小</span>
+                    </label>
+                </div>
+                <div>
+                    <input type="text" id="noteMicText" placeholder="麥克風備註說明 (例如: 錄音檔有微弱電流聲)" class="w-full p-2.5 bg-slate-950 rounded-xl border border-slate-800 text-slate-200 text-xs focus:border-orange-500 outline-none">
+                </div>
+            </div>
+
+            <!-- Step Navigation Buttons -->
+            <div class="flex justify-between items-center pt-4 border-t border-slate-800/80">
+                <button onclick="switchTab('speaker')" class="px-5 py-2.5 bg-slate-900 hover:bg-slate-800 text-slate-300 font-semibold text-xs rounded-xl border border-slate-700 transition-all flex items-center gap-2 active:scale-95">
+                    <i class="fa-solid fa-arrow-left"></i> 上一項：2. 喇叭測試
+                </button>
+                <button onclick="switchTab('keyboard')" class="px-5 py-2.5 bg-orange-500 hover:bg-orange-600 text-white font-bold text-xs rounded-xl shadow-lg shadow-orange-500/20 transition-all flex items-center gap-2 active:scale-95">
+                    下一項：4. 鍵盤測試 <i class="fa-solid fa-arrow-right"></i>
+                </button>
+            </div>
+        </section>
+
+        <!-- TAB 4: Keyboard Test Module -->
+        <section id="tab-keyboard" class="hidden space-y-6 max-w-6xl mx-auto w-full">
+            <div class="flex justify-between items-center border-b border-slate-800 pb-4">
+                <div>
+                    <h2 class="text-2xl font-bold text-white flex items-center gap-2">
+                        <i class="fa-solid fa-keyboard text-amber-400"></i> 4. 鍵盤按鍵與防鬼鍵測試
+                    </h2>
+                    <p class="text-xs text-slate-400 mt-1">支援筆電全尺寸鍵盤、獨立數字小鍵盤 (Numpad) 與編輯控制鍵區</p>
+                </div>
+                <div class="flex items-center gap-2">
+                    <span id="keyRolloverCount" class="text-xs font-mono px-3 py-1.5 rounded-xl bg-slate-900 text-amber-400 border border-slate-800">當前按壓: 0 鍵</span>
+                    <button onclick="resetKeyboardTest()" class="px-3.5 py-1.5 bg-slate-800 hover:bg-slate-700 text-slate-200 font-semibold text-xs rounded-xl border border-slate-700 transition-all">
+                        <i class="fa-solid fa-rotate-right"></i> 重設鍵盤紀錄
+                    </button>
+                </div>
+            </div>
+
+            <!-- Virtual Keyboard Layout Container -->
+            <div class="glass-panel p-4 sm:p-6 rounded-3xl overflow-x-auto">
+                <div class="min-w-[1100px] flex gap-6 justify-center items-start code-font text-xs select-none" id="keyboardLayout">
+                    <!-- BLOCK 1: Main QWERTY Section -->
+                    <div class="flex flex-col gap-1.5 flex-1 max-w-[700px]">
+                        <div class="flex gap-1.5">
+                            <div data-key="Escape" class="key-cap w-12 h-9 rounded-lg flex items-center justify-center font-bold text-rose-400">Esc</div>
+                            <div class="w-2"></div>
+                            <div data-key="F1" class="key-cap flex-1 h-9 rounded-lg flex items-center justify-center">F1</div>
+                            <div data-key="F2" class="key-cap flex-1 h-9 rounded-lg flex items-center justify-center">F2</div>
+                            <div data-key="F3" class="key-cap flex-1 h-9 rounded-lg flex items-center justify-center">F3</div>
+                            <div data-key="F4" class="key-cap flex-1 h-9 rounded-lg flex items-center justify-center">F4</div>
+                            <div class="w-1.5"></div>
+                            <div data-key="F5" class="key-cap flex-1 h-9 rounded-lg flex items-center justify-center">F5</div>
+                            <div data-key="F6" class="key-cap flex-1 h-9 rounded-lg flex items-center justify-center">F6</div>
+                            <div data-key="F7" class="key-cap flex-1 h-9 rounded-lg flex items-center justify-center">F7</div>
+                            <div data-key="F8" class="key-cap flex-1 h-9 rounded-lg flex items-center justify-center">F8</div>
+                            <div class="w-1.5"></div>
+                            <div data-key="F9" class="key-cap flex-1 h-9 rounded-lg flex items-center justify-center">F9</div>
+                            <div data-key="F10" class="key-cap flex-1 h-9 rounded-lg flex items-center justify-center">F10</div>
+                            <div data-key="F11" class="key-cap flex-1 h-9 rounded-lg flex items-center justify-center">F11</div>
+                            <div data-key="F12" class="key-cap flex-1 h-9 rounded-lg flex items-center justify-center">F12</div>
+                        </div>
+                        <div class="flex gap-1.5">
+                            <div data-key="Backquote" class="key-cap w-10 h-10 rounded-lg flex items-center justify-center">`</div>
+                            <div data-key="Digit1" class="key-cap flex-1 h-10 rounded-lg flex items-center justify-center">1</div>
+                            <div data-key="Digit2" class="key-cap flex-1 h-10 rounded-lg flex items-center justify-center">2</div>
+                            <div data-key="Digit3" class="key-cap flex-1 h-10 rounded-lg flex items-center justify-center">3</div>
+                            <div data-key="Digit4" class="key-cap flex-1 h-10 rounded-lg flex items-center justify-center">4</div>
+                            <div data-key="Digit5" class="key-cap flex-1 h-10 rounded-lg flex items-center justify-center">5</div>
+                            <div data-key="Digit6" class="key-cap flex-1 h-10 rounded-lg flex items-center justify-center">6</div>
+                            <div data-key="Digit7" class="key-cap flex-1 h-10 rounded-lg flex items-center justify-center">7</div>
+                            <div data-key="Digit8" class="key-cap flex-1 h-10 rounded-lg flex items-center justify-center">8</div>
+                            <div data-key="Digit9" class="key-cap flex-1 h-10 rounded-lg flex items-center justify-center">9</div>
+                            <div data-key="Digit0" class="key-cap flex-1 h-10 rounded-lg flex items-center justify-center">0</div>
+                            <div data-key="Minus" class="key-cap flex-1 h-10 rounded-lg flex items-center justify-center">-</div>
+                            <div data-key="Equal" class="key-cap flex-1 h-10 rounded-lg flex items-center justify-center">=</div>
+                            <div data-key="Backspace" class="key-cap w-20 h-10 rounded-lg flex items-center justify-center text-[10px]">Backspace</div>
+                        </div>
+                        <div class="flex gap-1.5">
+                            <div data-key="Tab" class="key-cap w-14 h-10 rounded-lg flex items-center justify-center text-[10px]">Tab</div>
+                            <div data-key="KeyQ" class="key-cap flex-1 h-10 rounded-lg flex items-center justify-center font-bold">Q</div>
+                            <div data-key="KeyW" class="key-cap flex-1 h-10 rounded-lg flex items-center justify-center font-bold">W</div>
+                            <div data-key="KeyE" class="key-cap flex-1 h-10 rounded-lg flex items-center justify-center font-bold">E</div>
+                            <div data-key="KeyR" class="key-cap flex-1 h-10 rounded-lg flex items-center justify-center font-bold">R</div>
+                            <div data-key="KeyT" class="key-cap flex-1 h-10 rounded-lg flex items-center justify-center font-bold">T</div>
+                            <div data-key="KeyY" class="key-cap flex-1 h-10 rounded-lg flex items-center justify-center font-bold">Y</div>
+                            <div data-key="KeyU" class="key-cap flex-1 h-10 rounded-lg flex items-center justify-center font-bold">U</div>
+                            <div data-key="KeyI" class="key-cap flex-1 h-10 rounded-lg flex items-center justify-center font-bold">I</div>
+                            <div data-key="KeyO" class="key-cap flex-1 h-10 rounded-lg flex items-center justify-center font-bold">O</div>
+                            <div data-key="KeyP" class="key-cap flex-1 h-10 rounded-lg flex items-center justify-center font-bold">P</div>
+                            <div data-key="BracketLeft" class="key-cap flex-1 h-10 rounded-lg flex items-center justify-center">[</div>
+                            <div data-key="BracketRight" class="key-cap flex-1 h-10 rounded-lg flex items-center justify-center">]</div>
+                            <div data-key="Backslash" class="key-cap w-16 h-10 rounded-lg flex items-center justify-center">\</div>
+                        </div>
+                        <div class="flex gap-1.5">
+                            <div data-key="CapsLock" class="key-cap w-16 h-10 rounded-lg flex items-center justify-center text-[10px]">Caps Lock</div>
+                            <div data-key="KeyA" class="key-cap flex-1 h-10 rounded-lg flex items-center justify-center font-bold">A</div>
+                            <div data-key="KeyS" class="key-cap flex-1 h-10 rounded-lg flex items-center justify-center font-bold">S</div>
+                            <div data-key="KeyD" class="key-cap flex-1 h-10 rounded-lg flex items-center justify-center font-bold">D</div>
+                            <div data-key="KeyF" class="key-cap flex-1 h-10 rounded-lg flex items-center justify-center font-bold">F</div>
+                            <div data-key="KeyG" class="key-cap flex-1 h-10 rounded-lg flex items-center justify-center font-bold">G</div>
+                            <div data-key="KeyH" class="key-cap flex-1 h-10 rounded-lg flex items-center justify-center font-bold">H</div>
+                            <div data-key="KeyJ" class="key-cap flex-1 h-10 rounded-lg flex items-center justify-center font-bold">J</div>
+                            <div data-key="KeyK" class="key-cap flex-1 h-10 rounded-lg flex items-center justify-center font-bold">K</div>
+                            <div data-key="KeyL" class="key-cap flex-1 h-10 rounded-lg flex items-center justify-center font-bold">L</div>
+                            <div data-key="Semicolon" class="key-cap flex-1 h-10 rounded-lg flex items-center justify-center">;</div>
+                            <div data-key="Quote" class="key-cap flex-1 h-10 rounded-lg flex items-center justify-center">'</div>
+                            <div data-key="Enter" class="key-cap w-20 h-10 rounded-lg flex items-center justify-center text-[10px] text-amber-300 font-bold">Enter</div>
+                        </div>
+                        <div class="flex gap-1.5">
+                            <div data-key="ShiftLeft" class="key-cap w-20 h-10 rounded-lg flex items-center justify-center text-[10px]">Shift</div>
+                            <div data-key="KeyZ" class="key-cap flex-1 h-10 rounded-lg flex items-center justify-center font-bold">Z</div>
+                            <div data-key="KeyX" class="key-cap flex-1 h-10 rounded-lg flex items-center justify-center font-bold">X</div>
+                            <div data-key="KeyC" class="key-cap flex-1 h-10 rounded-lg flex items-center justify-center font-bold">C</div>
+                            <div data-key="KeyV" class="key-cap flex-1 h-10 rounded-lg flex items-center justify-center font-bold">V</div>
+                            <div data-key="KeyB" class="key-cap flex-1 h-10 rounded-lg flex items-center justify-center font-bold">B</div>
+                            <div data-key="KeyN" class="key-cap flex-1 h-10 rounded-lg flex items-center justify-center font-bold">N</div>
+                            <div data-key="KeyM" class="key-cap flex-1 h-10 rounded-lg flex items-center justify-center font-bold">M</div>
+                            <div data-key="Comma" class="key-cap flex-1 h-10 rounded-lg flex items-center justify-center">,</div>
+                            <div data-key="Period" class="key-cap flex-1 h-10 rounded-lg flex items-center justify-center">.</div>
+                            <div data-key="Slash" class="key-cap flex-1 h-10 rounded-lg flex items-center justify-center">/</div>
+                            <div data-key="ShiftRight" class="key-cap w-24 h-10 rounded-lg flex items-center justify-center text-[10px]">Shift</div>
+                        </div>
+                        <div class="flex gap-1.5">
+                            <div data-key="ControlLeft" class="key-cap w-12 h-10 rounded-lg flex items-center justify-center text-[10px]">Ctrl</div>
+                            <div data-key="MetaLeft" class="key-cap w-12 h-10 rounded-lg flex items-center justify-center text-[10px]">Win</div>
+                            <div data-key="AltLeft" class="key-cap w-12 h-10 rounded-lg flex items-center justify-center text-[10px]">Alt</div>
+                            <div data-key="Space" class="key-cap flex-1 h-10 rounded-lg flex items-center justify-center font-bold text-slate-400">Space</div>
+                            <div data-key="AltRight" class="key-cap w-12 h-10 rounded-lg flex items-center justify-center text-[10px]">Alt</div>
+                            <div data-key="ControlRight" class="key-cap w-12 h-10 rounded-lg flex items-center justify-center text-[10px]">Ctrl</div>
+                        </div>
+                    </div>
+                    <!-- BLOCK 2: Nav Keys -->
+                    <div class="flex flex-col gap-1.5 w-32">
+                        <div class="flex gap-1.5 h-9">
+                            <div data-key="PrintScreen" class="key-cap flex-1 rounded-lg flex items-center justify-center text-[9px] text-sky-400">PrtSc</div>
+                            <div data-key="ScrollLock" class="key-cap flex-1 rounded-lg flex items-center justify-center text-[9px]">ScrLk</div>
+                            <div data-key="Pause" class="key-cap flex-1 rounded-lg flex items-center justify-center text-[9px]">Pause</div>
+                        </div>
+                        <div class="flex gap-1.5 h-10">
+                            <div data-key="Insert" class="key-cap flex-1 rounded-lg flex items-center justify-center text-[10px]">Ins</div>
+                            <div data-key="Home" class="key-cap flex-1 rounded-lg flex items-center justify-center text-[10px] text-emerald-400 font-bold">Home</div>
+                            <div data-key="PageUp" class="key-cap flex-1 rounded-lg flex items-center justify-center text-[10px] text-sky-400 font-bold">PgUp</div>
+                        </div>
+                        <div class="flex gap-1.5 h-10">
+                            <div data-key="Delete" class="key-cap flex-1 rounded-lg flex items-center justify-center text-[10px] text-rose-400">Del</div>
+                            <div data-key="End" class="key-cap flex-1 rounded-lg flex items-center justify-center text-[10px] text-emerald-400 font-bold">End</div>
+                            <div data-key="PageDown" class="key-cap flex-1 rounded-lg flex items-center justify-center text-[10px] text-sky-400 font-bold">PgDn</div>
+                        </div>
+                        <div class="h-10"></div>
+                        <div class="flex gap-1.5 h-10">
+                            <div class="flex-1"></div>
+                            <div data-key="ArrowUp" class="key-cap flex-1 rounded-lg flex items-center justify-center text-[10px]"><i class="fa-solid fa-arrow-up"></i></div>
+                            <div class="flex-1"></div>
+                        </div>
+                        <div class="flex gap-1.5 h-10">
+                            <div data-key="ArrowLeft" class="key-cap flex-1 rounded-lg flex items-center justify-center text-[10px]"><i class="fa-solid fa-arrow-left"></i></div>
+                            <div data-key="ArrowDown" class="key-cap flex-1 rounded-lg flex items-center justify-center text-[10px]"><i class="fa-solid fa-arrow-down"></i></div>
+                            <div data-key="ArrowRight" class="key-cap flex-1 rounded-lg flex items-center justify-center text-[10px]"><i class="fa-solid fa-arrow-right"></i></div>
+                        </div>
+                    </div>
+                    <!-- BLOCK 3: Numpad -->
+                    <div class="grid grid-cols-4 gap-1.5 w-44">
+                        <div class="col-span-4 text-center text-[10px] text-amber-400 font-bold h-9 flex items-center justify-center">--- 數字小鍵盤 ---</div>
+                        <div data-key="NumLock" class="key-cap h-10 rounded-lg flex items-center justify-center text-[9px] text-amber-300">NumLk</div>
+                        <div data-key="NumpadDivide" class="key-cap h-10 rounded-lg flex items-center justify-center">/</div>
+                        <div data-key="NumpadMultiply" class="key-cap h-10 rounded-lg flex items-center justify-center">*</div>
+                        <div data-key="NumpadSubtract" class="key-cap h-10 rounded-lg flex items-center justify-center">-</div>
+                        <div data-key="Numpad7" class="key-cap h-10 rounded-lg flex items-center justify-center font-bold">7</div>
+                        <div data-key="Numpad8" class="key-cap h-10 rounded-lg flex items-center justify-center font-bold">8</div>
+                        <div data-key="Numpad9" class="key-cap h-10 rounded-lg flex items-center justify-center font-bold">9</div>
+                        <div data-key="NumpadAdd" class="key-cap row-span-2 h-full rounded-lg flex items-center justify-center font-bold">+</div>
+                        <div data-key="Numpad4" class="key-cap h-10 rounded-lg flex items-center justify-center font-bold">4</div>
+                        <div data-key="Numpad5" class="key-cap h-10 rounded-lg flex items-center justify-center font-bold">5</div>
+                        <div data-key="Numpad6" class="key-cap h-10 rounded-lg flex items-center justify-center font-bold">6</div>
+                        <div data-key="Numpad1" class="key-cap h-10 rounded-lg flex items-center justify-center font-bold">1</div>
+                        <div data-key="Numpad2" class="key-cap h-10 rounded-lg flex items-center justify-center font-bold">2</div>
+                        <div data-key="Numpad3" class="key-cap h-10 rounded-lg flex items-center justify-center font-bold">3</div>
+                        <div data-key="NumpadEnter" class="key-cap row-span-2 h-full rounded-lg flex items-center justify-center font-bold text-[9px] text-amber-300">Enter</div>
+                        <div data-key="Numpad0" class="key-cap col-span-2 h-10 rounded-lg flex items-center justify-center font-bold">0</div>
+                        <div data-key="NumpadDecimal" class="key-cap h-10 rounded-lg flex items-center justify-center font-bold">.</div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Keyboard Checkbox Panel -->
+            <div class="glass-panel p-5 rounded-2xl space-y-3">
+                <h3 class="text-sm font-bold text-white">鍵盤檢測結果登記 :</h3>
+                <div class="grid grid-cols-1 sm:grid-cols-3 gap-3 text-xs">
+                    <label class="flex items-center gap-2.5 p-3 bg-slate-900 rounded-xl border border-slate-800 cursor-pointer hover:border-slate-700">
+                        <input type="checkbox" id="chkKbdNormal" checked onchange="toggleExclusiveChk('chkKbdNormal', ['chkKbdDeadKey', 'chkKbdGhosting'])" class="w-4 h-4 rounded text-emerald-500 bg-slate-950">
+                        <span class="font-bold text-emerald-400">全鍵位按鍵觸發正常</span>
+                    </label>
+                    <label class="flex items-center gap-2.5 p-3 bg-slate-900 rounded-xl border border-slate-800 cursor-pointer hover:border-slate-700">
+                        <input type="checkbox" id="chkKbdDeadKey" onchange="uncheckNormal('chkKbdNormal')" class="w-4 h-4 rounded text-orange-500 bg-slate-950">
+                        <span>部分按鍵無反應 / 掉鍵</span>
+                    </label>
+                    <label class="flex items-center gap-2.5 p-3 bg-slate-900 rounded-xl border border-slate-800 cursor-pointer hover:border-slate-700">
+                        <input type="checkbox" id="chkKbdGhosting" onchange="uncheckNormal('chkKbdNormal')" class="w-4 h-4 rounded text-orange-500 bg-slate-950">
+                        <span>鍵盤卡鍵 / 連點衝突</span>
+                    </label>
+                </div>
+                <div>
+                    <input type="text" id="noteKbdText" placeholder="鍵盤備註說明 (例如: Space 鍵手感較鬆、Caps Lock 無燈號)" class="w-full p-2.5 bg-slate-950 rounded-xl border border-slate-800 text-slate-200 text-xs focus:border-orange-500 outline-none">
+                </div>
+            </div>
+
+            <!-- Step Navigation Buttons -->
+            <div class="flex justify-between items-center pt-4 border-t border-slate-800/80">
+                <button onclick="switchTab('mic')" class="px-5 py-2.5 bg-slate-900 hover:bg-slate-800 text-slate-300 font-semibold text-xs rounded-xl border border-slate-700 transition-all flex items-center gap-2 active:scale-95">
+                    <i class="fa-solid fa-arrow-left"></i> 上一項：3. 麥克風測試
+                </button>
+                <button onclick="switchTab('camera')" class="px-5 py-2.5 bg-orange-500 hover:bg-orange-600 text-white font-bold text-xs rounded-xl shadow-lg shadow-orange-500/20 transition-all flex items-center gap-2 active:scale-95">
+                    下一項：5. 鏡頭測試 <i class="fa-solid fa-arrow-right"></i>
+                </button>
+            </div>
+        </section>
+
+        <!-- TAB 5: Webcam Camera Test Module -->
+        <section id="tab-camera" class="hidden space-y-6 max-w-4xl mx-auto w-full">
+            <div class="flex justify-between items-center border-b border-slate-800 pb-4">
+                <div>
+                    <h2 class="text-2xl font-bold text-white flex items-center gap-2">
+                        <i class="fa-solid fa-camera text-rose-400"></i> 5. 筆電鏡頭 (Webcam) 檢測
+                    </h2>
+                    <p class="text-xs text-slate-400 mt-1">檢查鏡頭畫面清晰度、色調、鏡像與 FPS 幀率</p>
+                </div>
+                <button onclick="startCamera()" class="px-4 py-2 bg-rose-600 hover:bg-rose-500 text-white font-bold text-xs rounded-xl shadow transition-all active:scale-95 flex items-center gap-2">
+                    <i class="fa-solid fa-video"></i> 開啟攝影機
+                </button>
+            </div>
+
+            <div class="glass-panel rounded-3xl p-6 space-y-4">
+                <div class="relative w-full aspect-video bg-slate-950 rounded-2xl overflow-hidden border border-slate-800 flex items-center justify-center">
+                    <video id="webcamVideo" autoplay playsinline class="w-full h-full object-cover hidden"></video>
+                    <div id="cameraOverlayPrompt" class="flex flex-col items-center justify-center p-6 text-center space-y-3">
+                        <div class="p-3 bg-rose-500/20 text-rose-400 rounded-full">
+                            <i class="fa-solid fa-video-slash text-2xl"></i>
+                        </div>
+                        <div>
+                            <h4 class="font-bold text-white text-base">攝影機尚未啟動</h4>
+                            <p class="text-xs text-slate-400 mt-1">請允許瀏覽器存取視訊鏡頭</p>
+                        </div>
+                    </div>
+                    <canvas id="snapshotCanvas" class="absolute inset-0 w-full h-full object-cover hidden"></canvas>
+                </div>
+
+                <div class="grid grid-cols-1 sm:grid-cols-3 gap-3 text-xs">
+                    <button onclick="toggleCameraMirror()" class="p-3 bg-slate-900 hover:bg-slate-800 rounded-xl border border-slate-800 text-slate-200 font-semibold flex items-center justify-center gap-2">
+                        <i class="fa-solid fa-right-left text-rose-400"></i> 切換水平鏡像
+                    </button>
+                    <button onclick="takeCameraSnapshot()" class="p-3 bg-slate-900 hover:bg-slate-800 rounded-xl border border-slate-800 text-slate-200 font-semibold flex items-center justify-center gap-2">
+                        <i class="fa-solid fa-camera-retro text-amber-400"></i> 快照拍攝檢測
+                    </button>
+                    <div class="p-3 bg-slate-950 rounded-xl border border-slate-800 font-mono text-slate-400 flex items-center justify-between">
+                        <span>解析度 / FPS:</span>
+                        <span id="camStatsText" class="text-emerald-400 font-bold">--</span>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Camera Checkbox Panel -->
+            <div class="glass-panel p-5 rounded-2xl space-y-3">
+                <h3 class="text-sm font-bold text-white">鏡頭檢測結果登記 :</h3>
+                <div class="grid grid-cols-1 sm:grid-cols-3 gap-3 text-xs">
+                    <label class="flex items-center gap-2.5 p-3 bg-slate-900 rounded-xl border border-slate-800 cursor-pointer hover:border-slate-700">
+                        <input type="checkbox" id="chkCamNormal" checked onchange="toggleExclusiveChk('chkCamNormal', ['chkCamNoSignal', 'chkCamBlur'])" class="w-4 h-4 rounded text-emerald-500 bg-slate-950">
+                        <span class="font-bold text-emerald-400">視訊鏡頭成像正常</span>
+                    </label>
+                    <label class="flex items-center gap-2.5 p-3 bg-slate-900 rounded-xl border border-slate-800 cursor-pointer hover:border-slate-700">
+                        <input type="checkbox" id="chkCamNoSignal" onchange="uncheckNormal('chkCamNormal')" class="w-4 h-4 rounded text-orange-500 bg-slate-950">
+                        <span>鏡頭無訊號 / 黑畫面</span>
+                    </label>
+                    <label class="flex items-center gap-2.5 p-3 bg-slate-900 rounded-xl border border-slate-800 cursor-pointer hover:border-slate-700">
+                        <input type="checkbox" id="chkCamBlur" onchange="uncheckNormal('chkCamNormal')" class="w-4 h-4 rounded text-orange-500 bg-slate-950">
+                        <span>畫面模糊 / 偏色嚴重</span>
+                    </label>
+                </div>
+                <div>
+                    <input type="text" id="noteCamText" placeholder="鏡頭備註說明 (例如: 鏡頭物理遮蔽蓋較緊)" class="w-full p-2.5 bg-slate-950 rounded-xl border border-slate-800 text-slate-200 text-xs focus:border-orange-500 outline-none">
+                </div>
+            </div>
+
+            <!-- Step Navigation Buttons -->
+            <div class="flex justify-between items-center pt-4 border-t border-slate-800/80">
+                <button onclick="switchTab('keyboard')" class="px-5 py-2.5 bg-slate-900 hover:bg-slate-800 text-slate-300 font-semibold text-xs rounded-xl border border-slate-700 transition-all flex items-center gap-2 active:scale-95">
+                    <i class="fa-solid fa-arrow-left"></i> 上一項：4. 鍵盤測試
+                </button>
+                <button onclick="switchTab('trackpad')" class="px-5 py-2.5 bg-orange-500 hover:bg-orange-600 text-white font-bold text-xs rounded-xl shadow-lg shadow-orange-500/20 transition-all flex items-center gap-2 active:scale-95">
+                    下一項：6. 觸控板測試 <i class="fa-solid fa-arrow-right"></i>
+                </button>
+            </div>
+        </section>
+
+        <!-- TAB 6: Trackpad & Mouse Test Module -->
+        <section id="tab-trackpad" class="hidden space-y-6 max-w-4xl mx-auto w-full">
+            <div class="flex justify-between items-center border-b border-slate-800 pb-4">
+                <div>
+                    <h2 class="text-2xl font-bold text-white flex items-center gap-2">
+                        <i class="fa-solid fa-computer-mouse text-fuchsia-400"></i> 6. 觸控板與滑鼠測試
+                    </h2>
+                    <p class="text-xs text-slate-400 mt-1">按鍵點擊、滾輪滾動與觸控軌跡滑順度測試</p>
+                </div>
+                <button onclick="clearTrackpadCanvas()" class="px-3.5 py-1.5 bg-slate-800 hover:bg-slate-700 text-slate-200 font-semibold text-xs rounded-xl border border-slate-700">
+                    <i class="fa-solid fa-eraser"></i> 清除軌跡
+                </button>
+            </div>
+
+            <div class="grid grid-cols-1 sm:grid-cols-4 gap-3 text-xs text-center">
+                <div id="mouseBtnLeft" class="p-4 rounded-2xl bg-slate-900 border border-slate-800 font-bold transition-all">
+                    左鍵 (Left Click)
+                </div>
+                <div id="mouseBtnMiddle" class="p-4 rounded-2xl bg-slate-900 border border-slate-800 font-bold transition-all">
+                    中鍵 (Middle Click)
+                </div>
+                <div id="mouseBtnRight" class="p-4 rounded-2xl bg-slate-900 border border-slate-800 font-bold transition-all">
+                    右鍵 (Right Click)
+                </div>
+                <div id="mouseScrollBox" class="p-4 rounded-2xl bg-slate-900 border border-slate-800 font-bold transition-all text-slate-400">
+                    滾輪方向: <span id="scrollDirText">無</span>
+                </div>
+            </div>
+
+            <div class="glass-panel rounded-3xl p-4 space-y-2">
+                <p class="text-xs text-slate-400">請在下方區域使用觸控板或滑鼠塗鴉滑動，測試軌跡反應速度與斷線狀況：</p>
+                <div class="w-full h-56 bg-slate-950 rounded-2xl overflow-hidden border border-slate-800 relative cursor-crosshair">
+                    <canvas id="trackpadCanvas" class="w-full h-full block"></canvas>
+                </div>
+            </div>
+
+            <!-- Trackpad Checkbox Panel -->
+            <div class="glass-panel p-5 rounded-2xl space-y-3 border border-slate-800">
+                <h3 class="text-sm font-bold text-white flex items-center gap-2">
+                    <i class="fa-solid fa-square-check text-fuchsia-400"></i> 觸控板檢測結果登記 :
+                </h3>
+                <div class="grid grid-cols-1 sm:grid-cols-3 gap-3 text-xs">
+                    <label class="flex items-center gap-2.5 p-3 bg-slate-900 rounded-xl border border-slate-800 cursor-pointer hover:border-slate-700">
+                        <input type="checkbox" id="chkPadNormal" checked onchange="toggleExclusiveChk('chkPadNormal', ['chkPadBtnNoResp', 'chkPadLag'])" class="w-4 h-4 rounded text-emerald-500 bg-slate-950">
+                        <span class="font-bold text-emerald-400">點擊與滑動軌跡正常</span>
+                    </label>
+                    <label class="flex items-center gap-2.5 p-3 bg-slate-900 rounded-xl border border-slate-800 cursor-pointer hover:border-slate-700">
+                        <input type="checkbox" id="chkPadBtnNoResp" onchange="uncheckNormal('chkPadNormal')" class="w-4 h-4 rounded text-orange-500 bg-slate-950">
+                        <span>左/右按鍵無反應</span>
+                    </label>
+                    <label class="flex items-center gap-2.5 p-3 bg-slate-900 rounded-xl border border-slate-800 cursor-pointer hover:border-slate-700">
+                        <input type="checkbox" id="chkPadLag" onchange="uncheckNormal('chkPadNormal')" class="w-4 h-4 rounded text-orange-500 bg-slate-950">
+                        <span>滑動不順暢 / 游標跳動</span>
+                    </label>
+                </div>
+                <div>
+                    <input type="text" id="notePadText" placeholder="觸控板備註說明 (例如: 左右鍵按壓感較軟)" class="w-full p-2.5 bg-slate-950 rounded-xl border border-slate-800 text-slate-200 text-xs focus:border-fuchsia-500 outline-none">
+                </div>
+            </div>
+
+            <!-- Step Navigation Buttons -->
+            <div class="flex justify-between items-center pt-4 border-t border-slate-800/80">
+                <button onclick="switchTab('camera')" class="px-5 py-2.5 bg-slate-900 hover:bg-slate-800 text-slate-300 font-semibold text-xs rounded-xl border border-slate-700 transition-all flex items-center gap-2 active:scale-95">
+                    <i class="fa-solid fa-arrow-left"></i> 上一項：5. 鏡頭測試
+                </button>
+                <button onclick="switchTab('appearance')" class="px-5 py-2.5 bg-orange-500 hover:bg-orange-600 text-white font-bold text-xs rounded-xl shadow-lg shadow-orange-500/20 transition-all flex items-center gap-2 active:scale-95">
+                    下一項：7. 外觀與配件檢測 <i class="fa-solid fa-arrow-right"></i>
+                </button>
+            </div>
+        </section>
+
+        <!-- TAB 7: Appearance Inspection Module -->
+        <section id="tab-appearance" class="hidden space-y-6 max-w-5xl mx-auto w-full">
+            <div class="flex justify-between items-center border-b border-slate-800 pb-4">
+                <div>
+                    <h2 class="text-2xl font-bold text-white flex items-center gap-2">
+                        <i class="fa-solid fa-pen-ruler text-teal-400"></i> 7. 外觀瑕疵標記與配件檢查
+                    </h2>
+                    <p class="text-xs text-slate-400 mt-1">請點選色筆在下方四個筆視角標示傷痕/刮痕（將呈現於列印報告單中）</p>
+                </div>
+                <button onclick="resetAppearanceCanvases()" class="px-3.5 py-2 bg-slate-800 hover:bg-slate-700 text-slate-200 font-semibold text-xs rounded-xl border border-slate-700 flex items-center gap-1.5 transition-all">
+                    <i class="fa-solid fa-rotate-left"></i> 重設外觀圖
+                </button>
+            </div>
+
+            <!-- Laptop 4-Surface Drawing Panel -->
+            <div class="glass-panel p-5 sm:p-6 rounded-3xl space-y-4">
+                <div class="flex flex-wrap justify-between items-center gap-3 border-b border-slate-800 pb-3">
+                    <h3 class="text-sm font-bold text-white flex items-center gap-2">
+                        <i class="fa-solid fa-pencil text-amber-400"></i> 筆電四視圖傷痕標記畫板 (A面 / B面 / C面 / D面)
+                    </h3>
+                    <div class="flex items-center gap-2 text-xs">
+                        <button onclick="setAppTool('red')" id="toolRedBtn" class="px-3 py-1.5 rounded-lg bg-rose-600 text-white font-bold border border-rose-400 flex items-center gap-1 shadow">
+                            <span class="w-2.5 h-2.5 rounded-full bg-red-300"></span> 紅筆標記
+                        </button>
+                        <button onclick="setAppTool('yellow')" id="toolYellowBtn" class="px-3 py-1.5 rounded-lg bg-slate-800 text-slate-300 border border-slate-700 flex items-center gap-1">
+                            <span class="w-2.5 h-2.5 rounded-full bg-amber-400"></span> 黃筆標記
+                        </button>
+                        <button onclick="setAppTool('eraser')" id="toolEraserBtn" class="px-3 py-1.5 rounded-lg bg-slate-800 text-slate-300 border border-slate-700 flex items-center gap-1">
+                            <i class="fa-solid fa-eraser text-xs"></i> 橡皮擦
+                        </button>
+                    </div>
+                </div>
+
+                <!-- 4 Views Grid -->
+                <div class="grid grid-cols-2 lg:grid-cols-4 gap-3">
+                    <div class="flex flex-col items-center gap-1.5">
+                        <span class="text-xs font-bold text-slate-300">【 A面 - 上蓋 】</span>
+                        <div class="relative w-full aspect-[4/3] bg-slate-950 rounded-xl border border-slate-800 overflow-hidden flex items-center justify-center cursor-crosshair">
+                            <svg class="absolute inset-0 w-full h-full p-4 text-slate-700/60 pointer-events-none" viewBox="0 0 100 75" fill="none" stroke="currentColor" stroke-width="1.5">
+                                <rect x="10" y="10" width="80" height="55" rx="3" />
+                                <rect x="42" y="32" width="16" height="11" rx="1" />
+                            </svg>
+                            <canvas id="canvasA" class="absolute inset-0 w-full h-full"></canvas>
+                        </div>
+                    </div>
+
+                    <div class="flex flex-col items-center gap-1.5">
+                        <span class="text-xs font-bold text-slate-300">【 B面 - 螢幕視訊 】</span>
+                        <div class="relative w-full aspect-[4/3] bg-slate-950 rounded-xl border border-slate-800 overflow-hidden flex items-center justify-center cursor-crosshair">
+                            <svg class="absolute inset-0 w-full h-full p-4 text-slate-700/60 pointer-events-none" viewBox="0 0 100 75" fill="none" stroke="currentColor" stroke-width="1.5">
+                                <rect x="10" y="10" width="80" height="55" rx="3" />
+                                <rect x="18" y="16" width="64" height="43" rx="1" />
+                                <circle cx="50" cy="13" r="1.5" fill="currentColor" />
+                            </svg>
+                            <canvas id="canvasB" class="absolute inset-0 w-full h-full"></canvas>
+                        </div>
+                    </div>
+
+                    <div class="flex flex-col items-center gap-1.5">
+                        <span class="text-xs font-bold text-slate-300">【 C面 - 鍵盤觸控板 】</span>
+                        <div class="relative w-full aspect-[4/3] bg-slate-950 rounded-xl border border-slate-800 overflow-hidden flex items-center justify-center cursor-crosshair">
+                            <svg class="absolute inset-0 w-full h-full p-4 text-slate-700/60 pointer-events-none" viewBox="0 0 100 75" fill="none" stroke="currentColor" stroke-width="1.5">
+                                <rect x="10" y="10" width="80" height="55" rx="3" />
+                                <rect x="16" y="16" width="68" height="28" rx="1" />
+                                <rect x="36" y="48" width="28" height="13" rx="1" />
+                            </svg>
+                            <canvas id="canvasC" class="absolute inset-0 w-full h-full"></canvas>
+                        </div>
+                    </div>
+
+                    <div class="flex flex-col items-center gap-1.5">
+                        <span class="text-xs font-bold text-slate-300">【 D面 - 底殼機身 】</span>
+                        <div class="relative w-full aspect-[4/3] bg-slate-950 rounded-xl border border-slate-800 overflow-hidden flex items-center justify-center cursor-crosshair">
+                            <svg class="absolute inset-0 w-full h-full p-4 text-slate-700/60 pointer-events-none" viewBox="0 0 100 75" fill="none" stroke="currentColor" stroke-width="1.5">
+                                <rect x="10" y="10" width="80" height="55" rx="3" />
+                                <rect x="20" y="20" width="60" height="8" rx="1" />
+                                <rect x="20" y="48" width="60" height="8" rx="1" />
+                            </svg>
+                            <canvas id="canvasD" class="absolute inset-0 w-full h-full"></canvas>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Body Condition & Accessories Checklist -->
+            <div class="glass-panel p-5 sm:p-6 rounded-3xl space-y-4 border border-slate-800">
+                <h3 class="text-sm font-bold text-white flex items-center gap-2">
+                    <i class="fa-solid fa-shield-halved text-emerald-400"></i> 機身外觀與配件狀態評估 :
+                </h3>
+
+                <div class="grid grid-cols-1 md:grid-cols-2 gap-4 text-xs">
+                    <div class="p-4 bg-slate-950/60 rounded-2xl border border-slate-800/80 space-y-3">
+                        <h4 class="font-bold text-slate-200 border-b border-slate-800 pb-2">1. 轉軸與底部螺絲 :</h4>
+                        <div class="space-y-2">
+                            <label class="flex items-center gap-2.5 cursor-pointer">
+                                <input type="checkbox" id="chkHingeNormal" checked onchange="toggleExclusiveChk('chkHingeNormal', ['chkHingeLoose'])" class="w-4 h-4 rounded text-emerald-500 bg-slate-900">
+                                <span>轉軸開合正常平順</span>
+                            </label>
+                            <label class="flex items-center gap-2.5 cursor-pointer">
+                                <input type="checkbox" id="chkHingeLoose" onchange="uncheckNormal('chkHingeNormal')" class="w-4 h-4 rounded text-orange-500 bg-slate-900">
+                                <span>轉軸鬆動 / 開合有異音硬絞</span>
+                            </label>
+                            <label class="flex items-center gap-2.5 cursor-pointer">
+                                <input type="checkbox" id="chkScrewNormal" checked onchange="toggleExclusiveChk('chkScrewNormal', ['chkScrewMissing'])" class="w-4 h-4 rounded text-emerald-500 bg-slate-900">
+                                <span>底部螺絲完整無缺少</span>
+                            </label>
+                            <label class="flex items-center gap-2.5 cursor-pointer">
+                                <input type="checkbox" id="chkScrewMissing" onchange="uncheckNormal('chkScrewNormal')" class="w-4 h-4 rounded text-orange-500 bg-slate-900">
+                                <span>底部螺絲缺少 / 螺絲滑絲掉落</span>
+                            </label>
+                        </div>
+                    </div>
+
+                    <div class="p-4 bg-slate-950/60 rounded-2xl border border-slate-800/80 space-y-3">
+                        <h4 class="font-bold text-slate-200 border-b border-slate-800 pb-2">2. 機身傷痕與隨附配件 :</h4>
+                        <div class="space-y-2">
+                            <label class="flex items-center gap-2.5 cursor-pointer">
+                                <input type="checkbox" id="chkBodyNormal" checked onchange="toggleExclusiveChk('chkBodyNormal', ['chkBodyScratch'])" class="w-4 h-4 rounded text-emerald-500 bg-slate-900">
+                                <span>外觀完好無明顯傷痕</span>
+                            </label>
+                            <label class="flex items-center gap-2.5 cursor-pointer">
+                                <input type="checkbox" id="chkBodyScratch" onchange="uncheckNormal('chkBodyNormal')" class="w-4 h-4 rounded text-orange-500 bg-slate-900">
+                                <span>外殼有刮傷 / 掉漆 / 撞凹痕跡</span>
+                            </label>
+                            <label class="flex items-center gap-2.5 cursor-pointer">
+                                <input type="checkbox" id="chkChargerIncluded" checked onchange="toggleExclusiveChk('chkChargerIncluded', ['chkChargerNone'])" class="w-4 h-4 rounded text-emerald-500 bg-slate-900">
+                                <span>隨附電源充電器 (原廠/替代)</span>
+                            </label>
+                            <label class="flex items-center gap-2.5 cursor-pointer">
+                                <input type="checkbox" id="chkChargerNone" onchange="uncheckNormal('chkChargerIncluded')" class="w-4 h-4 rounded text-orange-500 bg-slate-900">
+                                <span>未隨附充電器 (僅單機)</span>
+                            </label>
+                        </div>
+                    </div>
+                </div>
+
+                <div>
+                    <input type="text" id="noteAppText" placeholder="外觀與配件備註說明 (例如: A面左下撞凹、缺少底殼中段 1 顆螺絲)" class="w-full p-2.5 bg-slate-950 rounded-xl border border-slate-800 text-slate-200 text-xs focus:border-teal-500 outline-none">
+                </div>
+            </div>
+
+            <!-- Step Navigation Buttons -->
+            <div class="flex justify-between items-center pt-4 border-t border-slate-800/80">
+                <button onclick="switchTab('trackpad')" class="px-5 py-2.5 bg-slate-900 hover:bg-slate-800 text-slate-300 font-semibold text-xs rounded-xl border border-slate-700 transition-all flex items-center gap-2 active:scale-95">
+                    <i class="fa-solid fa-arrow-left"></i> 上一步：測試觸控板
+                </button>
+                <button onclick="switchTab('wifibt')" class="px-5 py-2.5 bg-sky-600 hover:bg-sky-500 text-white font-bold text-xs rounded-xl shadow-lg transition-all flex items-center gap-2 active:scale-95">
+                    下一步：8. Wi-Fi與藍牙測試 <i class="fa-solid fa-arrow-right"></i>
+                </button>
+            </div>
+        </section>
+
+        <!-- TAB 8: Wi-Fi & Bluetooth Test Module -->
+        <section id="tab-wifibt" class="hidden space-y-6 max-w-5xl mx-auto w-full">
+            <div class="flex justify-between items-center border-b border-slate-800 pb-4">
+                <div>
+                    <h2 class="text-2xl font-bold text-white flex items-center gap-2">
+                        <i class="fa-solid fa-wifi text-sky-400"></i> 8. Wi-Fi 無線網路與藍牙 (Bluetooth) 檢測
+                    </h2>
+                    <p class="text-xs text-slate-400 mt-1">測試網卡硬體狀態、搜尋週邊藍牙設備與 Wi-Fi Ping 延遲檢測</p>
+                </div>
+                <span id="btStatusBadge" class="text-xs px-3 py-1 rounded-full bg-slate-900 text-slate-400 border border-slate-800">藍牙狀態檢測中...</span>
+            </div>
+
+            <!-- Wireless Hardware & Scanner Section -->
+            <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+                <div class="glass-panel p-5 rounded-2xl space-y-4 border border-indigo-500/20">
+                    <div class="flex justify-between items-center">
+                        <h3 class="text-sm font-bold text-white flex items-center gap-2">
+                            <i class="fa-brands fa-bluetooth-b text-indigo-400 text-base"></i> 藍牙 (Bluetooth) 硬體與裝置搜尋
+                        </h3>
+                        <button onclick="requestBluetoothScan()" class="px-3 py-1.5 bg-indigo-600 hover:bg-indigo-500 text-white font-bold text-xs rounded-xl shadow transition-all active:scale-95 flex items-center gap-1.5">
+                            <i class="fa-solid fa-magnifying-glass text-xs"></i> 搜尋週邊藍牙裝置
+                        </button>
+                    </div>
+
+                    <div class="bg-slate-950 p-3 rounded-xl border border-slate-800 text-xs font-mono space-y-2">
+                        <div class="flex justify-between items-center">
+                            <span class="text-slate-400">藍牙 API 支援狀態:</span>
+                            <span id="btAvailabilityText" class="text-emerald-400 font-bold">偵測中...</span>
+                        </div>
+                        <p class="text-[11px] text-slate-500 leading-relaxed">
+                            點擊上方按鈕可開啟瀏覽器原生的「藍牙掃描與連線視窗」，若可搜尋到週邊耳機/手機，代表藍牙晶片完全正常。
+                        </p>
+                    </div>
+
+                    <div id="btLogContainer" class="h-28 bg-slate-950 rounded-xl p-3 border border-slate-800 overflow-y-auto code-font text-xs text-slate-300 space-y-1">
+                        <div class="text-slate-500">[系統] 藍牙事件與裝置搜尋日誌...</div>
+                    </div>
+                </div>
+
+                <div class="glass-panel p-5 rounded-2xl space-y-4 border border-sky-500/20">
+                    <div class="flex justify-between items-center">
+                        <h3 class="text-sm font-bold text-white flex items-center gap-2">
+                            <i class="fa-solid fa-network-wired text-sky-400 text-base"></i> Wi-Fi 無線網路連線與 Ping 測試
+                        </h3>
+                        <button onclick="testNetworkPing()" class="px-3 py-1.5 bg-sky-600 hover:bg-sky-500 text-white font-bold text-xs rounded-xl shadow transition-all active:scale-95 flex items-center gap-1.5">
+                            <i class="fa-solid fa-bolt text-xs"></i> 實測 Ping 延遲
+                        </button>
+                    </div>
+
+                    <div class="bg-slate-950 p-3 rounded-xl border border-slate-800 text-xs font-mono space-y-2">
+                        <div class="flex justify-between items-center">
+                            <span class="text-slate-400">連線狀態 (Online):</span>
+                            <span id="wifiOnlineText" class="text-emerald-400 font-bold">檢測中...</span>
+                        </div>
+                        <div class="flex justify-between items-center">
+                            <span class="text-slate-400">即時網路 Ping 延遲:</span>
+                            <span id="wifiPingText" class="text-amber-400 font-bold">未測試</span>
+                        </div>
+                    </div>
+
+                    <div class="p-3.5 bg-slate-950/80 rounded-xl border border-slate-800 space-y-2">
+                        <div class="flex justify-between items-center">
+                            <span class="text-xs font-bold text-slate-300"><i class="fa-solid fa-terminal text-amber-400 mr-1.5"></i> 實時掃描周邊所有 Wi-Fi 熱點:</span>
+                            <button onclick="copyWifiScanCmd()" class="px-2.5 py-1 bg-amber-500/10 hover:bg-amber-500/20 text-amber-300 border border-amber-500/30 text-[11px] font-bold rounded-lg transition-all">
+                                複製 CMD 周邊 Wi-Fi 掃描指令
+                            </button>
+                        </div>
+                        <p class="text-[11px] text-slate-400">
+                            受瀏覽器沙盒隱私保護限制，網頁端無法直接列出附近所有的 SSID 名稱。複製上方指令貼入 CMD，即可實時顯示周邊的所有 Wi-Fi 訊號%與熱點名稱。
+                        </p>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Wi-Fi & Bluetooth Result Checkbox Panel -->
+            <div class="glass-panel p-5 rounded-2xl space-y-3 border border-slate-800">
+                <h3 class="text-sm font-bold text-white flex items-center gap-2">
+                    <i class="fa-solid fa-square-check text-sky-400"></i> Wi-Fi 與藍牙檢測結果登記 :
+                </h3>
+                <div class="grid grid-cols-1 sm:grid-cols-3 gap-3 text-xs">
+                    <label class="flex items-center gap-2.5 p-3 bg-slate-900 rounded-xl border border-slate-800 cursor-pointer hover:border-slate-700">
+                        <input type="checkbox" id="chkWifiBtNormal" checked onchange="toggleExclusiveChk('chkWifiBtNormal', ['chkWifiBtNoBt', 'chkWifiBtNoWifi', 'chkWifiBtWeakSignal'])" class="w-4 h-4 rounded text-emerald-500 bg-slate-950">
+                        <span class="font-bold text-emerald-400">Wi-Fi 與藍牙功能完全正常</span>
+                    </label>
+                    <label class="flex items-center gap-2.5 p-3 bg-slate-900 rounded-xl border border-slate-800 cursor-pointer hover:border-slate-700">
+                        <input type="checkbox" id="chkWifiBtNoBt" onchange="uncheckNormal('chkWifiBtNormal')" class="w-4 h-4 rounded text-orange-500 bg-slate-950">
+                        <span>藍牙無反應 / 無法搜尋裝置</span>
+                    </label>
+                    <label class="flex items-center gap-2.5 p-3 bg-slate-900 rounded-xl border border-slate-800 cursor-pointer hover:border-slate-700">
+                        <input type="checkbox" id="chkWifiBtNoWifi" onchange="uncheckNormal('chkWifiBtNormal')" class="w-4 h-4 rounded text-orange-500 bg-slate-950">
+                        <span>Wi-Fi 無法搜尋 / 無法連線</span>
+                    </label>
+                    <label class="flex items-center gap-2.5 p-3 bg-slate-900 rounded-xl border border-slate-800 cursor-pointer hover:border-slate-700">
+                        <input type="checkbox" id="chkWifiBtWeakSignal" onchange="uncheckNormal('chkWifiBtNormal')" class="w-4 h-4 rounded text-orange-500 bg-slate-950">
+                        <span>訊號偏弱 / 容易斷線</span>
+                    </label>
+                </div>
+                <div>
+                    <input type="text" id="noteWifiBtText" placeholder="Wi-Fi與藍牙備註說明 (例如: 藍牙偶爾搜尋時間較長、Wi-Fi 5G頻段連線正常)" class="w-full p-2.5 bg-slate-950 rounded-xl border border-slate-800 text-slate-200 text-xs focus:border-sky-500 outline-none">
+                </div>
+            </div>
+
+            <!-- Step Navigation Buttons -->
+            <div class="flex justify-between items-center pt-4 border-t border-slate-800/80">
+                <button onclick="switchTab('appearance')" class="px-5 py-2.5 bg-slate-900 hover:bg-slate-800 text-slate-300 font-semibold text-xs rounded-xl border border-slate-700 transition-all flex items-center gap-2 active:scale-95">
+                    <i class="fa-solid fa-arrow-left"></i> 上一步：7. 外觀與配件檢測
+                </button>
+                <button onclick="switchTab('system')" class="px-5 py-2.5 bg-orange-500 hover:bg-orange-600 text-white font-bold text-xs rounded-xl shadow-lg shadow-orange-500/20 transition-all flex items-center gap-2 active:scale-95">
+                    下一步：9. 產出 PDF 報告 <i class="fa-solid fa-arrow-right"></i>
+                </button>
+            </div>
+        </section>
+
+        <!-- TAB 9: System, Battery & PDF Report Module -->
+        <section id="tab-system" class="hidden space-y-6 max-w-4xl mx-auto w-full">
+            <div class="flex flex-col sm:flex-row justify-between items-start sm:items-center border-b border-slate-800 pb-4 gap-4">
+                <div>
+                    <h2 class="text-2xl font-bold text-white flex items-center gap-2">
+                        <i class="fa-solid fa-file-invoice text-orange-400"></i> 9. 筆電資訊、電池規格與 PDF 檢測報告產出
+                    </h2>
+                    <p class="text-xs text-slate-400 mt-1">匯集前述檢測結果與外觀標記，生成包含型號/S/N序號的專業診斷報告書</p>
+                </div>
+                <div class="flex flex-wrap items-center gap-2">
+                    <button onclick="copySysReportPrompt()" class="px-3.5 py-2.5 bg-amber-500/20 hover:bg-amber-500/30 text-amber-400 border border-amber-500/30 font-semibold text-xs rounded-xl flex items-center gap-1.5 transition-all active:scale-95">
+                        <i class="fa-solid fa-terminal"></i> 複製 Windows 機型與電池檢測指令
+                    </button>
+                    <button onclick="generatePDFReport()" class="px-5 py-2.5 bg-gradient-to-r from-orange-500 to-amber-500 hover:from-orange-600 hover:to-amber-600 text-white font-extrabold text-xs rounded-xl shadow-lg shadow-orange-500/20 transition-all active:scale-95 flex items-center gap-2 whitespace-nowrap">
+                        <i class="fa-solid fa-file-pdf text-sm"></i> 生成 PDF 檢測報告單
+                    </button>
+                </div>
+            </div>
+
+            <!-- Laptop Brand Model, S/N & Engineer Card -->
+            <div class="glass-panel p-5 rounded-2xl space-y-4 border border-amber-500/30">
+                <div class="flex flex-wrap justify-between items-center gap-2">
+                    <h3 class="text-sm font-bold text-amber-400 flex items-center gap-2">
+                        <i class="fa-solid fa-laptop"></i> 筆電品牌型號與 S/N 序號註記 (列印報告用)
+                    </h3>
+                    <button onclick="copySysReportPrompt()" class="px-3 py-1 bg-slate-800 hover:bg-slate-700 text-amber-300 rounded-lg text-xs font-mono transition-all">
+                        &gt;_ 複製 CMD 快速查詢 S/N 指令
+                    </button>
+                </div>
+                
+                <div class="grid grid-cols-1 sm:grid-cols-3 gap-3 text-xs">
+                    <div>
+                        <label class="block text-slate-400 mb-1">筆電品牌型號 (Model):</label>
+                        <input type="text" id="reportModel" placeholder="例如: ASUS ROG G513Q" class="w-full p-2.5 bg-slate-950 rounded-xl border border-slate-800 text-slate-200 text-xs focus:border-amber-500 outline-none">
+                    </div>
+                    <div>
+                        <label class="block text-slate-400 mb-1">BIOS S/N 序號 (Serial):</label>
+                        <input type="text" id="reportSN" placeholder="例如: PF-3A12X9" class="w-full p-2.5 bg-slate-950 rounded-xl border border-slate-800 text-slate-200 text-xs focus:border-amber-500 outline-none">
+                    </div>
+                    <div>
+                        <label class="block text-slate-400 mb-1">檢測人員 / 工程師:</label>
+                        <input type="text" id="reportEngineer" value="Q哥專業工程師" class="w-full p-2.5 bg-slate-950 rounded-xl border border-slate-800 text-slate-200 text-xs focus:border-amber-500 outline-none">
+                    </div>
+                </div>
+            </div>
+
+            <!-- Battery & Display Refresh Rate Card -->
+            <div class="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                <div class="glass-panel p-5 rounded-2xl space-y-3">
+                    <div class="flex justify-between items-center">
+                        <h3 class="text-sm font-bold text-white flex items-center gap-2">
+                            <i class="fa-solid fa-battery-three-quarters text-emerald-400"></i> 電池健康度與充電狀態
+                        </h3>
+                        <button onclick="copyBatteryReportCmd()" class="text-[10px] text-emerald-400 bg-emerald-500/10 border border-emerald-500/20 px-2.5 py-1 rounded-lg hover:bg-emerald-500/20 transition-all font-semibold">
+                            複製電池健康度報告指令
+                        </button>
+                    </div>
+                    <div class="space-y-2 text-xs font-mono text-slate-300">
+                        <div class="flex justify-between items-center p-2.5 bg-slate-950 rounded-lg">
+                            <span class="text-slate-400">當前剩餘電量:</span>
+                            <span id="batPercent" class="text-emerald-400 font-bold">100 %</span>
+                        </div>
+                        <div class="flex justify-between items-center p-2.5 bg-slate-950 rounded-lg">
+                            <span class="text-slate-400">電源連接狀態:</span>
+                            <span id="batCharging" class="text-sky-400 font-bold">充電中 ⚡</span>
+                        </div>
+                        <div class="flex justify-between items-center p-2.5 bg-slate-950 rounded-lg">
+                            <span class="text-slate-400">電池健康度 (自行填寫):</span>
+                            <input type="text" id="batHealthInput" value="100 %" placeholder="如: 88% 或 良好" class="w-28 p-1 bg-slate-900 rounded border border-slate-700 text-right text-emerald-400 font-bold text-xs outline-none focus:border-emerald-500">
+                        </div>
+                        <div class="flex justify-between items-center p-2.5 bg-slate-950 rounded-lg">
+                            <span class="text-slate-400">充/放電估計時間:</span>
+                            <span id="batTimeEstimate" class="text-slate-300">運作正常</span>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="glass-panel p-5 rounded-2xl space-y-3">
+                    <h3 class="text-sm font-bold text-white flex items-center gap-2">
+                        <i class="fa-solid fa-desktop text-sky-400"></i> 螢幕更新率與系統
+                    </h3>
+                    <div class="space-y-2 text-xs font-mono text-slate-300">
+                        <div class="flex justify-between items-center p-2.5 bg-slate-950 rounded-lg">
+                            <span class="text-slate-400">實測更新率 (Hz):</span>
+                            <span id="sysHzText" class="text-amber-400 font-bold">測量中...</span>
+                        </div>
+                        <div class="flex justify-between items-center p-2.5 bg-slate-950 rounded-lg">
+                            <span class="text-slate-400">螢幕解析度:</span>
+                            <span id="sysResText" class="text-slate-200 font-bold">1920 x 1080</span>
+                        </div>
+                        <div class="flex justify-between items-center p-2.5 bg-slate-950 rounded-lg">
+                            <span class="text-slate-400">作業系統平台:</span>
+                            <span id="sysOsPlatform" class="text-sky-400 font-bold">Win32</span>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Step Navigation Buttons -->
+            <div class="flex justify-between items-center pt-4 border-t border-slate-800/80">
+                <button onclick="switchTab('wifibt')" class="px-5 py-2.5 bg-slate-900 hover:bg-slate-800 text-slate-300 font-semibold text-xs rounded-xl border border-slate-700 transition-all flex items-center gap-2 active:scale-95">
+                    <i class="fa-solid fa-arrow-left"></i> 上一步：8. Wi-Fi與藍牙測試
+                </button>
+                <button onclick="switchTab('dashboard')" class="px-5 py-2.5 bg-slate-800 hover:bg-slate-700 text-slate-200 font-semibold text-xs rounded-xl border border-slate-700 transition-all flex items-center gap-2 active:scale-95">
+                    <i class="fa-solid fa-house"></i> 返回檢測主選單
+                </button>
+            </div>
+        </section>
+
+    </main>
+
+    <!-- Fullscreen Color Test Overlay (Screen Test) -->
+    <div id="screenTestOverlay" class="fixed inset-0 z-50 bg-white flex items-center justify-center hidden cursor-pointer select-none">
+        <div id="screenTestPattern" class="w-full h-full pointer-events-none hidden"></div>
+        <div id="screenTestBanner" class="fixed top-6 left-1/2 -translate-x-1/2 bg-slate-900/90 text-white px-5 py-2.5 rounded-full shadow-2xl border border-slate-700 text-xs font-medium flex items-center gap-3">
+            <span id="screenColorLabel" class="font-bold text-orange-400">1. 全白 White</span>
+            <span class="text-slate-500">|</span>
+            <span>點擊/Space 切換 | ESC 退出</span>
+        </div>
+    </div>
+
+    <!-- Printable PDF Diagnostic Report Modal -->
+    <div id="reportModal" class="fixed inset-0 z-50 bg-slate-950/80 backdrop-blur-md flex items-center justify-center p-4 hidden">
+        <div class="bg-white text-slate-900 rounded-2xl max-w-3xl w-full p-6 sm:p-8 space-y-5 shadow-2xl border border-slate-200 overflow-y-auto max-h-[90vh]">
+            
+            <div id="printableReportArea" class="space-y-5">
+                <!-- Printable Header -->
+                <div class="flex justify-between items-center border-b pb-3 border-slate-300">
+                    <div class="flex items-center gap-3">
+                        <div class="w-10 h-10 rounded-xl bg-orange-600 flex items-center justify-center text-white font-black text-xl">Q</div>
+                        <div>
+                            <h2 class="font-extrabold text-xl text-slate-900">Q哥筆電全方位檢測診斷報告書</h2>
+                            <p class="text-xs text-slate-500">Q-Brother Laptop Diagnostic Engineering Report</p>
+                        </div>
+                    </div>
+                    <div class="text-right text-xs text-slate-500">
+                        <div>檢測日期: <span id="rptDate" class="font-bold text-slate-800">2026/08/05</span></div>
+                        <div>報告編號: <span id="rptNo" class="font-mono text-slate-800">QB-20260805-01</span></div>
+                    </div>
+                </div>
+
+                <!-- Device Info Table -->
+                <div class="grid grid-cols-2 gap-3 text-xs bg-slate-50 p-3.5 rounded-xl border border-slate-200">
+                    <div>
+                        <span class="text-slate-500">筆電品牌型號:</span>
+                        <div id="rptModel" class="font-bold text-slate-900 text-sm">ASUS ROG G513Q</div>
+                    </div>
+                    <div>
+                        <span class="text-slate-500">BIOS S/N 序號:</span>
+                        <div id="rptSN" class="font-mono font-bold text-slate-900 text-sm">PF-3A12X9</div>
+                    </div>
+                    <div>
+                        <span class="text-slate-500">電池健康度:</span>
+                        <div id="rptBatHealth" class="font-bold text-emerald-600 text-sm">100 % (正常)</div>
+                    </div>
+                    <div>
+                        <span class="text-slate-500">檢測人員/工程師:</span>
+                        <div id="rptEngineer" class="font-bold text-slate-900 text-sm">Q哥專業工程師</div>
+                    </div>
+                </div>
+
+                <!-- Hardware Functional Tests Result Table -->
+                <div>
+                    <h3 class="text-xs font-bold text-slate-700 mb-2 border-l-4 border-orange-500 pl-2">1. 硬體功能檢測結果列表：</h3>
+                    <table class="w-full text-xs text-left border-collapse border border-slate-200">
+                        <thead>
+                            <tr class="bg-slate-100 text-slate-700">
+                                <th class="p-2 border border-slate-200 w-1/4">檢測項目</th>
+                                <th class="p-2 border border-slate-200">檢測註記與詳細狀態</th>
+                                <th class="p-2 border border-slate-200 text-center w-24">判定結果</th>
+                            </tr>
+                        </thead>
+                        <tbody id="rptTableBody" class="text-slate-800">
+                            <!-- JS Dynamic Content -->
+                        </tbody>
+                    </table>
+                </div>
+
+                <!-- Appearance Drawings & Accessory Report -->
+                <div>
+                    <h3 class="text-xs font-bold text-slate-700 mb-2 border-l-4 border-teal-500 pl-2">2. 外觀瑕疵與隨附配件檢測結果：</h3>
+                    <div class="bg-slate-50 p-3 rounded-xl border border-slate-200 space-y-3 text-xs">
+                        <div class="grid grid-cols-4 gap-2 text-center text-[10px] text-slate-600">
+                            <div>
+                                <span class="font-bold">A面 (上蓋)</span>
+                                <div class="border border-slate-300 rounded bg-white overflow-hidden mt-1">
+                                    <img id="rptImgA" class="w-full h-auto block" alt="A面">
+                                </div>
+                            </div>
+                            <div>
+                                <span class="font-bold">B面 (螢幕)</span>
+                                <div class="border border-slate-300 rounded bg-white overflow-hidden mt-1">
+                                    <img id="rptImgB" class="w-full h-auto block" alt="B面">
+                                </div>
+                            </div>
+                            <div>
+                                <span class="font-bold">C面 (鍵盤)</span>
+                                <div class="border border-slate-300 rounded bg-white overflow-hidden mt-1">
+                                    <img id="rptImgC" class="w-full h-auto block" alt="C面">
+                                </div>
+                            </div>
+                            <div>
+                                <span class="font-bold">D面 (底殼)</span>
+                                <div class="border border-slate-300 rounded bg-white overflow-hidden mt-1">
+                                    <img id="rptImgD" class="w-full h-auto block" alt="D面">
+                                </div>
+                            </div>
+                        </div>
+
+                        <div id="rptAppTextSummary" class="text-slate-800 space-y-1 border-t border-slate-200 pt-2 font-mono">
+                            <!-- JS Dynamic Appearance Summary -->
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Footer Signatures -->
+                <div class="pt-4 border-t border-slate-200 flex justify-between items-end text-xs text-slate-500">
+                    <div>
+                        <p>Q哥專業筆電測試中心 • 離線診斷報告書</p>
+                        <p class="text-[10px]">本報告數據與外觀標記圖均由本機檢測工具即時產出</p>
+                    </div>
+                    <div class="border-b border-slate-400 w-36 text-center pb-1">
+                        工程師簽名
+                    </div>
+                </div>
+            </div>
+
+            <!-- Modal Actions -->
+            <div class="flex justify-end gap-3 no-print pt-2 border-t border-slate-200">
+                <button onclick="closeReportModal()" class="px-4 py-2 bg-slate-200 hover:bg-slate-300 text-slate-800 font-bold text-xs rounded-xl">
+                    關閉
+                </button>
+                <button onclick="triggerPrintPDF()" class="px-5 py-2 bg-orange-600 hover:bg-orange-500 text-white font-bold text-xs rounded-xl shadow flex items-center gap-2">
+                    <i class="fa-solid fa-print"></i> 列印 / 另存為 PDF
+                </button>
+            </div>
+
+        </div>
+    </div>
+
+    <!-- Footer Banner -->
+    <footer class="w-full border-t border-slate-800 bg-slate-950 py-4 text-center text-xs text-slate-500">
+        <p>Q哥筆電測試專用套件 • 離線獨立運作版本 • 檢測數據均於本機計算</p>
+    </footer>
+
+    <script>
+        /* TOAST NOTIFICATION SYSTEM */
+        function showToast(message, type = 'info') {
+            let toast = document.getElementById('customToastNotification');
+            if (!toast) {
+                toast = document.createElement('div');
+                toast.id = 'customToastNotification';
+                document.body.appendChild(toast);
+            }
+            
+            let icon = 'fa-bell text-amber-400';
+            let bgStyle = 'bg-slate-900/95 text-amber-300 border-amber-500/50';
+
+            if (type === 'success') {
+                icon = 'fa-circle-check text-emerald-400';
+                bgStyle = 'bg-emerald-950/95 text-emerald-200 border-emerald-500/50';
+            } else if (type === 'error') {
+                icon = 'fa-circle-exclamation text-rose-400';
+                bgStyle = 'bg-rose-950/95 text-rose-200 border-rose-500/50';
+            }
+
+            toast.className = `fixed bottom-8 left-1/2 -translate-x-1/2 z-50 px-5 py-3 rounded-2xl shadow-2xl backdrop-blur-md text-xs font-semibold flex items-center gap-2.5 border transition-all duration-300 ${bgStyle}`;
+            toast.innerHTML = `<i class="fa-solid ${icon} text-sm"></i> <span>${message}</span>`;
+
+            clearTimeout(toast._timer);
+            toast._timer = setTimeout(() => {
+                toast.classList.add('opacity-0', 'translate-y-4', 'pointer-events-none');
+            }, 3500);
+        }
+
+        /* CHECKBOX HELPER LOGIC */
+        function toggleExclusiveChk(normalId, failIds) {
+            const normalChk = document.getElementById(normalId);
+            if (normalChk && normalChk.checked) {
+                failIds.forEach(id => {
+                    const el = document.getElementById(id);
+                    if (el) el.checked = false;
+                });
+            }
+        }
+
+        function uncheckNormal(normalId) {
+            const normalChk = document.getElementById(normalId);
+            if (normalChk) normalChk.checked = false;
+        }
+
+        /* CORE AUDIO SYSTEM STATE */
+        let audioCtx = null;
+        let speakerOsc = null;
+        let speakerPanner = null;
+        let speakerGain = null;
+        let speakerChannel = 'none';
+
+        /* MIC SYSTEM STATE */
+        let micStream = null;
+        let micSource = null;
+        let micAnalyser = null;
+        let micMonitorGain = null;
+        let micAnimFrame = null;
+
+        /* RECORDING STATE */
+        let mediaRecorder = null;
+        let recordedChunks = [];
+        let recordedAudioUrl = null;
+
+        /* KEYBOARD TEST STATE */
+        let pressedKeysSet = new Set();
+        let testedKeysSet = new Set();
+
+        /* WEBCAM STATE */
+        let webcamStream = null;
+        let isCamMirrored = false;
+
+        /* SCREEN TEST STATE */
+        const colorList = [
+            { name: "1. 全白 White", bg: "#FFFFFF" },
+            { name: "2. 全紅 Red", bg: "#FF0000" },
+            { name: "3. 全綠 Green", bg: "#00FF00" },
+            { name: "4. 全黑 Black", bg: "#000000" },
+            { name: "5. 全藍 Blue", bg: "#0000FF" },
+            { name: "6. 50% 灰色 Gray", bg: "#808080" },
+            { name: "7. 彩條測試 Color Bars", bg: "bars" }
+        ];
+        let colorIdx = 0;
+
+        /* AUDIO CTX INITIALIZER */
+        function getAudioContext() {
+            if (!audioCtx) {
+                const AudioClass = window.AudioContext || window.webkitAudioContext;
+                audioCtx = new AudioClass();
+            }
+            if (audioCtx.state === 'suspended') {
+                audioCtx.resume();
+            }
+            return audioCtx;
+        }
+
+        /* TAB NAVIGATION */
+        function switchTab(tabId) {
+            stopSpeakerTest();
+            
+            const tabs = ['dashboard', 'screen', 'speaker', 'mic', 'keyboard', 'camera', 'trackpad', 'appearance', 'wifibt', 'system'];
+            tabs.forEach(t => {
+                const el = document.getElementById(`tab-${t}`);
+                if (el) el.classList.add('hidden');
+            });
+
+            const target = document.getElementById(`tab-${tabId}`);
+            if (target) target.classList.remove('hidden');
+
+            if (tabId === 'trackpad') setupTrackpadCanvas();
+            if (tabId === 'mic') setupMicCanvas();
+            if (tabId === 'appearance') setupAppearanceCanvases();
+            if (tabId === 'wifibt') {
+                checkBluetoothAvailability();
+                testNetworkPing();
+            }
+
+            window.scrollTo({ top: 0, behavior: 'smooth' });
+        }
+
+        /* SCREEN TEST OVERLAY LOGIC */
+        function startFullscreenScreenTest() {
+            const overlay = document.getElementById('screenTestOverlay');
+            overlay.classList.remove('hidden');
+            colorIdx = 0;
+            updateScreenColor();
+
+            if (overlay.requestFullscreen) overlay.requestFullscreen().catch(() => {});
+        }
+
+        function updateScreenColor() {
+            const overlay = document.getElementById('screenTestOverlay');
+            const pattern = document.getElementById('screenTestPattern');
+            const label = document.getElementById('screenColorLabel');
+            const curr = colorList[colorIdx];
+
+            pattern.classList.add('hidden');
+            pattern.className = "w-full h-full pointer-events-none hidden";
+
+            if (curr.bg === "bars") {
+                pattern.classList.remove('hidden');
+                pattern.className = "w-full h-full pointer-events-none bg-color-bars";
+            } else {
+                overlay.style.backgroundColor = curr.bg;
+            }
+
+            label.textContent = curr.name;
+        }
+
+        function nextScreenColor() {
+            colorIdx = (colorIdx + 1) % colorList.length;
+            updateScreenColor();
+        }
+
+        function exitScreenTest() {
+            const overlay = document.getElementById('screenTestOverlay');
+            overlay.classList.add('hidden');
+            if (document.fullscreenElement) {
+                document.exitFullscreen().catch(() => {});
+            }
+        }
+
+        document.getElementById('screenTestOverlay').addEventListener('click', nextScreenColor);
+
+        /* SPEAKER TEST LOGIC */
+        function playSpeakerTest(channel) {
+            const ctx = getAudioContext();
+            stopSpeakerTest();
+
+            speakerChannel = channel;
+            speakerGain = ctx.createGain();
+            const currentVol = (parseInt(document.getElementById('speakerVolSlider')?.value) || 50) / 100;
+            speakerGain.gain.setValueAtTime(currentVol, ctx.currentTime);
+
+            if (ctx.createStereoPanner) {
+                speakerPanner = ctx.createStereoPanner();
+                if (channel === 'left') speakerPanner.pan.setValueAtTime(-1, ctx.currentTime);
+                else if (channel === 'right') speakerPanner.pan.setValueAtTime(1, ctx.currentTime);
+                else speakerPanner.pan.setValueAtTime(0, ctx.currentTime);
+
+                speakerGain.connect(speakerPanner);
+                speakerPanner.connect(ctx.destination);
+            } else {
+                speakerGain.connect(ctx.destination);
+            }
+
+            const osc = ctx.createOscillator();
+            osc.frequency.setValueAtTime(1000, ctx.currentTime);
+            osc.connect(speakerGain);
+            osc.start();
+            speakerOsc = osc;
+
+            updateSpeakerUI(channel, true);
+        }
+
+        function updateSpeakerVolume(val) {
+            const txt = document.getElementById('speakerVolText');
+            if (txt) txt.textContent = `${val}%`;
+            if (speakerGain && audioCtx) {
+                speakerGain.gain.setValueAtTime(val / 100, audioCtx.currentTime);
+            }
+        }
+
+        function stopSpeakerTest() {
+            if (speakerOsc) {
+                try { speakerOsc.stop(); } catch(e) {}
+                speakerOsc.disconnect();
+                speakerOsc = null;
+            }
+            speakerChannel = 'none';
+            updateSpeakerUI('none', false);
+        }
+
+        function updateSpeakerUI(channel, isPlaying) {
+            const leftBox = document.getElementById('spkBoxLeft');
+            const rightBox = document.getElementById('spkBoxRight');
+            const leftRing = document.getElementById('spkRingLeft');
+            const rightRing = document.getElementById('spkRingRight');
+            const badge = document.getElementById('speakerStatusBadge');
+
+            if (leftBox) leftBox.classList.add('opacity-40');
+            if (rightBox) rightBox.classList.add('opacity-40');
+            if (leftRing) leftRing.classList.add('hidden');
+            if (rightRing) rightRing.classList.add('hidden');
+
+            if (!isPlaying) {
+                if (badge) {
+                    badge.textContent = '停止播放';
+                    badge.className = 'text-xs px-3 py-1 rounded-full bg-slate-900 text-slate-400 border border-slate-800';
+                }
+                return;
+            }
+
+            if (channel === 'left' || channel === 'both') {
+                if (leftBox) leftBox.classList.remove('opacity-40');
+                if (leftRing) leftRing.classList.remove('hidden');
+            }
+            if (channel === 'right' || channel === 'both') {
+                if (rightBox) rightBox.classList.remove('opacity-40');
+                if (rightRing) rightRing.classList.remove('hidden');
+            }
+
+            if (badge) {
+                badge.textContent = `播放中: ${channel === 'left' ? '左聲道' : channel === 'right' ? '右聲道' : '雙聲道'}`;
+                badge.className = 'text-xs px-3 py-1 rounded-full bg-indigo-500/20 text-indigo-400 border border-indigo-500/30';
+            }
+        }
+
+        /* MIC TEST LOGIC */
+        async function startMicrophone() {
+            try {
+                const ctx = getAudioContext();
+                micStream = await navigator.mediaDevices.getUserMedia({ audio: true });
+                micSource = ctx.createMediaStreamSource(micStream);
+                micAnalyser = ctx.createAnalyser();
+                micAnalyser.fftSize = 256;
+
+                micMonitorGain = ctx.createGain();
+                micMonitorGain.gain.setValueAtTime(0, ctx.currentTime);
+
+                micSource.connect(micAnalyser);
+                micSource.connect(micMonitorGain);
+                micMonitorGain.connect(ctx.destination);
+
+                document.getElementById('micPromptOverlay').classList.add('hidden');
+                
+                const startRecBtn = document.getElementById('startRecordBtn');
+                if (startRecBtn) startRecBtn.disabled = false;
+                const monToggle = document.getElementById('monitorToggle');
+                if (monToggle) monToggle.disabled = false;
+
+                const badge = document.getElementById('micStatusBadge');
+                if (badge) {
+                    badge.textContent = '收音運作中';
+                    badge.className = 'text-xs px-3 py-1 rounded-full bg-emerald-500/20 text-emerald-400 border border-emerald-500/30';
+                }
+
+                drawMicVisualizer();
+            } catch(e) {
+                showToast("無法存取麥克風，請確認瀏覽器已允許麥克風權限！", "error");
+            }
+        }
+
+        function toggleMicMonitoring(enabled) {
+            const warning = document.getElementById('feedbackWarning');
+            if (enabled) {
+                if (warning) warning.classList.remove('hidden');
+                if (micMonitorGain && audioCtx) micMonitorGain.gain.setValueAtTime(0.8, audioCtx.currentTime);
+            } else {
+                if (warning) warning.classList.add('hidden');
+                if (micMonitorGain && audioCtx) micMonitorGain.gain.setValueAtTime(0, audioCtx.currentTime);
+            }
+        }
+
+        function toggleRecord5Sec() {
+            if (!micStream) return;
+            recordedChunks = [];
+            try {
+                mediaRecorder = new MediaRecorder(micStream);
+            } catch(e) {
+                showToast("您的瀏覽器不支援錄音功能", "error");
+                return;
+            }
+            mediaRecorder.ondataavailable = e => { if (e.data.size > 0) recordedChunks.push(e.data); };
+            mediaRecorder.onstop = () => {
+                const blob = new Blob(recordedChunks, { type: 'audio/webm' });
+                recordedAudioUrl = URL.createObjectURL(blob);
+                const playBtn = document.getElementById('playRecordBtn');
+                if (playBtn) playBtn.disabled = false;
+                const recBtn = document.getElementById('startRecordBtn');
+                if (recBtn) recBtn.disabled = false;
+                showToast("5秒錄音完成！可點擊試聽播放。", "success");
+            };
+
+            mediaRecorder.start();
+            const recBtn = document.getElementById('startRecordBtn');
+            if (recBtn) recBtn.disabled = true;
+
+            let secLeft = 5;
+            const timer = document.getElementById('recordTimer');
+            if (timer) timer.textContent = `00:0${secLeft}`;
+
+            const interval = setInterval(() => {
+                secLeft--;
+                if (secLeft > 0) {
+                    if (timer) timer.textContent = `00:0${secLeft}`;
+                } else {
+                    clearInterval(interval);
+                    if (timer) timer.textContent = `00:00`;
+                    if (mediaRecorder && mediaRecorder.state === 'recording') mediaRecorder.stop();
+                }
+            }, 1000);
+        }
+
+        function playRecordBuffer() {
+            if (recordedAudioUrl) {
+                const audio = new Audio(recordedAudioUrl);
+                audio.play().catch(e => showToast("播放失敗，請重新錄製", "error"));
+            }
+        }
+
+        function setupMicCanvas() {
+            const canvas = document.getElementById('visualizerCanvas');
+            if (canvas) {
+                canvas.width = canvas.offsetWidth || 600;
+                canvas.height = canvas.offsetHeight || 180;
+            }
+        }
+
+        function drawMicVisualizer() {
+            const canvas = document.getElementById('visualizerCanvas');
+            if (!canvas || !micAnalyser) return;
+            const ctx = canvas.getContext('2d');
+            const bufferLen = micAnalyser.frequencyBinCount;
+            const dataArray = new Uint8Array(bufferLen);
+
+            function render() {
+                micAnimFrame = requestAnimationFrame(render);
+                micAnalyser.getByteFrequencyData(dataArray);
+
+                let sum = 0;
+                for (let i = 0; i < bufferLen; i++) sum += dataArray[i];
+                const avg = sum / bufferLen;
+                const volPct = Math.min(100, Math.round((avg / 128) * 100));
+
+                const volBar = document.getElementById('volumeLevelBar');
+                const dbText = document.getElementById('dbValueText');
+                if (volBar) volBar.style.width = `${volPct}%`;
+                if (dbText) dbText.textContent = `${volPct} %`;
+
+                ctx.fillStyle = '#020617';
+                ctx.fillRect(0, 0, canvas.width, canvas.height);
+
+                const barWidth = (canvas.width / bufferLen) * 2.2;
+                let x = 0;
+                for (let i = 0; i < bufferLen; i++) {
+                    const barH = (dataArray[i] / 255) * canvas.height * 0.85;
+                    const grad = ctx.createLinearGradient(0, canvas.height, 0, 0);
+                    grad.addColorStop(0, '#059669');
+                    grad.addColorStop(0.6, '#34d399');
+                    grad.addColorStop(1, '#f43f5e');
+                    ctx.fillStyle = grad;
+                    ctx.fillRect(x, canvas.height - barH, barWidth, barH);
+                    x += barWidth + 1;
+                }
+            }
+            render();
+        }
+
+        /* KEYBOARD TEST LOGIC */
+        window.addEventListener('keydown', (e) => {
+            const kTab = document.getElementById('tab-keyboard');
+            if (kTab && !kTab.classList.contains('hidden')) {
+                e.preventDefault();
+            }
+
+            if (!document.getElementById('screenTestOverlay').classList.contains('hidden')) {
+                if (e.key === 'Escape') exitScreenTest();
+                if (e.key === ' ' || e.key === 'ArrowRight') nextScreenColor();
+                return;
+            }
+
+            const code = e.code;
+            pressedKeysSet.add(code);
+            testedKeysSet.add(code);
+
+            const keyEl = document.querySelector(`[data-key="${code}"]`);
+            if (keyEl) {
+                keyEl.classList.add('pressed');
+                keyEl.classList.add('tested');
+            }
+
+            const keyRoll = document.getElementById('keyRolloverCount');
+            if (keyRoll) keyRoll.textContent = `當前按壓: ${pressedKeysSet.size} 鍵`;
+        });
+
+        window.addEventListener('keyup', (e) => {
+            const code = e.code;
+            pressedKeysSet.delete(code);
+
+            const keyEl = document.querySelector(`[data-key="${code}"]`);
+            if (keyEl) {
+                keyEl.classList.remove('pressed');
+            }
+
+            const keyRoll = document.getElementById('keyRolloverCount');
+            if (keyRoll) keyRoll.textContent = `當前按壓: ${pressedKeysSet.size} 鍵`;
+        });
+
+        function resetKeyboardTest() {
+            pressedKeysSet.clear();
+            testedKeysSet.clear();
+            document.querySelectorAll('.key-cap').forEach(el => {
+                el.classList.remove('pressed', 'tested');
+            });
+            const keyRoll = document.getElementById('keyRolloverCount');
+            if (keyRoll) keyRoll.textContent = `當前按壓: 0 鍵`;
+        }
+
+        /* CAMERA TEST LOGIC */
+        async function startCamera() {
+            try {
+                webcamStream = await navigator.mediaDevices.getUserMedia({ video: { width: 1280, height: 720 } });
+                const video = document.getElementById('webcamVideo');
+                video.srcObject = webcamStream;
+                video.classList.remove('hidden');
+                document.getElementById('cameraOverlayPrompt').classList.add('hidden');
+
+                video.onloadedmetadata = () => {
+                    const stats = document.getElementById('camStatsText');
+                    if (stats) stats.textContent = `${video.videoWidth}x${video.videoHeight} (30 FPS)`;
+                };
+            } catch(e) {
+                showToast("無法存取鏡頭，請確認權限或確定攝影機未被其他軟體佔用！", "error");
+            }
+        }
+
+        function toggleCameraMirror() {
+            const video = document.getElementById('webcamVideo');
+            isCamMirrored = !isCamMirrored;
+            video.style.transform = isCamMirrored ? "scaleX(-1)" : "scaleX(1)";
+        }
+
+        function takeCameraSnapshot() {
+            const video = document.getElementById('webcamVideo');
+            const canvas = document.getElementById('snapshotCanvas');
+            if (!webcamStream) return;
+
+            canvas.width = video.videoWidth;
+            canvas.height = video.videoHeight;
+            const ctx = canvas.getContext('2d');
+            if (isCamMirrored) {
+                ctx.translate(canvas.width, 0);
+                ctx.scale(-1, 1);
+            }
+            ctx.drawImage(video, 0, 0, canvas.width, canvas.height);
+            canvas.classList.remove('hidden');
+
+            showToast("快照拍攝成功！畫面凍結測試 2.5 秒。", "success");
+
+            setTimeout(() => {
+                canvas.classList.add('hidden');
+            }, 2500);
+        }
+
+        /* TRACKPAD TEST LOGIC */
+        let isDrawing = false;
+        function setupTrackpadCanvas() {
+            const canvas = document.getElementById('trackpadCanvas');
+            if (!canvas) return;
+            canvas.width = canvas.offsetWidth || 400;
+            canvas.height = canvas.offsetHeight || 220;
+            const ctx = canvas.getContext('2d');
+
+            canvas.addEventListener('mousedown', e => { isDrawing = true; ctx.beginPath(); ctx.moveTo(e.offsetX, e.offsetY); });
+            canvas.addEventListener('mousemove', e => {
+                if (isDrawing) {
+                    ctx.lineTo(e.offsetX, e.offsetY);
+                    ctx.strokeStyle = '#ff6600';
+                    ctx.lineWidth = 3;
+                    ctx.stroke();
+                }
+            });
+            window.addEventListener('mouseup', () => isDrawing = false);
+        }
+
+        function clearTrackpadCanvas() {
+            const canvas = document.getElementById('trackpadCanvas');
+            if (canvas) canvas.getContext('2d').clearRect(0, 0, canvas.width, canvas.height);
+        }
+
+        window.addEventListener('mousedown', e => {
+            if (e.button === 0) highlightMouseBtn('mouseBtnLeft');
+            if (e.button === 1) highlightMouseBtn('mouseBtnMiddle');
+            if (e.button === 2) highlightMouseBtn('mouseBtnRight');
+        });
+
+        function highlightMouseBtn(id) {
+            const el = document.getElementById(id);
+            if (el) {
+                el.classList.add('bg-fuchsia-600', 'text-white');
+                setTimeout(() => el.classList.remove('bg-fuchsia-600', 'text-white'), 300);
+            }
+        }
+
+        window.addEventListener('wheel', e => {
+            const txt = document.getElementById('scrollDirText');
+            if (txt) {
+                txt.textContent = e.deltaY < 0 ? "向上 ⬆" : "向下 ⬇";
+                txt.className = "text-fuchsia-400 font-bold";
+            }
+        });
+
+        /* APPEARANCE INSPECTION DRAWING LOGIC (A/B/C/D Surface) */
+        let activeAppTool = 'red';
+        const appCanvases = {};
+
+        function setAppTool(tool) {
+            activeAppTool = tool;
+            ['Red', 'Yellow', 'Eraser'].forEach(t => {
+                const btn = document.getElementById(`tool${t}Btn`);
+                if (btn) {
+                    if (t.toLowerCase() === tool) {
+                        btn.className = "px-3 py-1.5 rounded-lg bg-rose-600 text-white font-bold border border-rose-400 flex items-center gap-1 shadow";
+                    } else {
+                        btn.className = "px-3 py-1.5 rounded-lg bg-slate-800 text-slate-300 border border-slate-700 flex items-center gap-1";
+                    }
+                }
+            });
+        }
+
+        function setupAppearanceCanvases() {
+            ['A', 'B', 'C', 'D'].forEach(surface => {
+                const canvas = document.getElementById(`canvas${surface}`);
+                if (!canvas) return;
+                
+                canvas.width = canvas.offsetWidth || 220;
+                canvas.height = canvas.offsetHeight || 160;
+                const ctx = canvas.getContext('2d');
+                appCanvases[surface] = canvas;
+
+                let drawing = false;
+
+                function getPos(e) {
+                    const rect = canvas.getBoundingClientRect();
+                    return {
+                        x: (e.clientX || (e.touches && e.touches[0].clientX)) - rect.left,
+                        y: (e.clientY || (e.touches && e.touches[0].clientY)) - rect.top
+                    };
+                }
+
+                function startDraw(e) {
+                    drawing = true;
+                    const pos = getPos(e);
+                    ctx.beginPath();
+                    ctx.moveTo(pos.x, pos.y);
+                }
+
+                function moveDraw(e) {
+                    if (!drawing) return;
+                    const pos = getPos(e);
+                    if (activeAppTool === 'eraser') {
+                        ctx.clearRect(pos.x - 8, pos.y - 8, 16, 16);
+                    } else {
+                        ctx.strokeStyle = activeAppTool === 'red' ? '#ef4444' : '#f59e0b';
+                        ctx.lineWidth = 3;
+                        ctx.lineCap = 'round';
+                        ctx.lineTo(pos.x, pos.y);
+                        ctx.stroke();
+                    }
+                }
+
+                function stopDraw() {
+                    drawing = false;
+                }
+
+                canvas.onmousedown = startDraw;
+                canvas.onmousemove = moveDraw;
+                window.addEventListener('mouseup', stopDraw);
+
+                canvas.ontouchstart = startDraw;
+                canvas.ontouchmove = moveDraw;
+                canvas.ontouchend = stopDraw;
+            });
+        }
+
+        function resetAppearanceCanvases() {
+            ['A', 'B', 'C', 'D'].forEach(s => {
+                const cvs = document.getElementById(`canvas${s}`);
+                if (cvs) {
+                    cvs.getContext('2d').clearRect(0, 0, cvs.width, cvs.height);
+                }
+            });
+            showToast("已重設筆電四面傷痕標記畫板！", "success");
+        }
+
+        /* WI-FI & BLUETOOTH TEST LOGIC */
+        async function checkBluetoothAvailability() {
+            const statusEl = document.getElementById('btAvailabilityText');
+            const badge = document.getElementById('btStatusBadge');
+            if (!navigator.bluetooth) {
+                if (statusEl) statusEl.textContent = "瀏覽器未支援 Web Bluetooth API";
+                if (badge) {
+                    badge.textContent = "未支援藍牙 API";
+                    badge.className = "text-xs px-3 py-1 rounded-full bg-slate-900 text-rose-400 border border-slate-800";
+                }
+                return;
+            }
+            try {
+                const available = await navigator.bluetooth.getAvailability();
+                if (available) {
+                    if (statusEl) statusEl.textContent = "已偵測到藍牙晶片與驅動 (正常可用)";
+                    if (badge) {
+                        badge.textContent = "藍牙晶片正常";
+                        badge.className = "text-xs px-3 py-1 rounded-full bg-emerald-500/20 text-emerald-400 border border-emerald-500/30";
+                    }
+                } else {
+                    if (statusEl) statusEl.textContent = "未偵測到藍牙設備或藍牙已關閉";
+                    if (badge) {
+                        badge.textContent = "藍牙已關閉 / 無設備";
+                        badge.className = "text-xs px-3 py-1 rounded-full bg-amber-500/20 text-amber-400 border border-amber-500/30";
+                    }
+                }
+            } catch(e) {
+                if (statusEl) statusEl.textContent = "無法獲取藍牙晶片狀態";
+            }
+        }
+
+        async function requestBluetoothScan() {
+            if (!navigator.bluetooth) {
+                showToast("您的瀏覽器不支援 Web Bluetooth API (請使用 Chrome 或 Edge 瀏覽器)", "error");
+                return;
+            }
+            try {
+                logBtEvent("正在啟動系統藍牙搜尋視窗...");
+                const device = await navigator.bluetooth.requestDevice({
+                    acceptAllDevices: true
+                });
+                logBtEvent(`[成功搜尋到裝置] 名稱: ${device.name || '周邊藍牙裝置'} (ID: ${device.id})`);
+                showToast(`成功搜尋並選擇藍牙裝置: ${device.name || '未知裝置'}`, "success");
+            } catch(err) {
+                if (err.name === 'NotFoundError') {
+                    logBtEvent("[提示] 取消選擇藍牙裝置或取消搜尋");
+                } else {
+                    logBtEvent(`[藍牙訊息] ${err.message}`);
+                    showToast("藍牙搜尋: " + err.message, "info");
+                }
+            }
+        }
+
+        function logBtEvent(msg) {
+            const container = document.getElementById('btLogContainer');
+            if (!container) return;
+            const div = document.createElement('div');
+            div.textContent = `[${new Date().toLocaleTimeString()}] ${msg}`;
+            container.appendChild(div);
+            container.scrollTop = container.scrollHeight;
+        }
+
+        function testNetworkPing() {
+            const pingText = document.getElementById('wifiPingText');
+            const onlineText = document.getElementById('wifiOnlineText');
+            const navBadge = document.getElementById('navWifiStatus');
+
+            const isOnline = navigator.onLine;
+            if (onlineText) {
+                onlineText.textContent = isOnline ? "已連線 (Online)" : "未連線 (Offline)";
+                onlineText.className = isOnline ? "text-emerald-400 font-bold" : "text-rose-400 font-bold";
+            }
+            if (navBadge) {
+                navBadge.textContent = isOnline ? "Wi-Fi: 已連線" : "Wi-Fi: 斷線";
+            }
+
+            if (pingText) pingText.textContent = "測量中...";
+            const startTime = performance.now();
+            fetch('https://www.google.com/favicon.ico?cachebreak=' + Date.now(), { mode: 'no-cors', cache: 'no-store' })
+                .then(() => {
+                    const rtt = Math.round(performance.now() - startTime);
+                    if (pingText) pingText.textContent = `${rtt} ms`;
+                    showToast(`Wi-Fi 網路連線測試成功 Ping 延遲: ${rtt} ms`, "success");
+                })
+                .catch(() => {
+                    if (pingText) pingText.textContent = "無法連線";
+                    showToast("Ping 測試失敗，請確認網卡與 Wi-Fi 連線！", "error");
+                });
+        }
+
+        function copyWifiScanCmd() {
+            const cmd = `cmd /k "netsh wlan show networks mode=bssid & netsh wlan show interfaces"`;
+            copyTextToClipboard(cmd, "已複製周邊 Wi-Fi 掃描指令！按下 Win+R 輸入 CMD 貼上即可列出周邊所有 Wi-Fi 熱點與訊號強度。");
+        }
+
+        /* HELPER: GENERATE LAPTOP OUTLINE + USER DRAWINGS COMPOSITE IMAGE FOR REPORT */
+        function generateCompositeSurfaceImage(surface) {
+            const userCanvas = document.getElementById(`canvas${surface}`);
+            if (!userCanvas) return '';
+
+            const W = userCanvas.width || 300;
+            const H = userCanvas.height || 225;
+
+            const tempCanvas = document.createElement('canvas');
+            tempCanvas.width = W;
+            tempCanvas.height = H;
+            const ctx = tempCanvas.getContext('2d');
+
+            // Fill clean white background for printable report
+            ctx.fillStyle = '#ffffff';
+            ctx.fillRect(0, 0, W, H);
+
+            // Scale factor based on SVG viewBox (100 x 75)
+            const sx = W / 100;
+            const sy = H / 75;
+
+            ctx.strokeStyle = '#64748b'; // Slate 500 outline color
+            ctx.lineWidth = Math.max(1.5, 2 * (sx / 3));
+            ctx.fillStyle = '#f8fafc'; // Soft body fill
+
+            function roundRect(x, y, w, h, r, fill = false) {
+                const rx = x * sx, ry = y * sy, rw = w * sx, rh = h * sy, rr = r * Math.min(sx, sy);
+                ctx.beginPath();
+                if (typeof ctx.roundRect === 'function') {
+                    ctx.roundRect(rx, ry, rw, rh, rr);
+                } else {
+                    ctx.rect(rx, ry, rw, rh);
+                }
+                if (fill) ctx.fill();
+                ctx.stroke();
+            }
+
+            function circle(cx, cy, r) {
+                ctx.beginPath();
+                ctx.arc(cx * sx, cy * sy, r * Math.min(sx, sy), 0, Math.PI * 2);
+                ctx.fillStyle = '#475569';
+                ctx.fill();
+            }
+
+            // Draw Base Laptop Outer Shell
+            roundRect(10, 10, 80, 55, 3, true);
+
+            // Draw Surface Specific Features
+            ctx.fillStyle = '#ffffff';
+            if (surface === 'A') {
+                roundRect(42, 32, 16, 11, 1, true);
+            } else if (surface === 'B') {
+                roundRect(18, 16, 64, 43, 1, true);
+                circle(50, 13, 1.5);
+            } else if (surface === 'C') {
+                roundRect(16, 16, 68, 28, 1, true);
+                roundRect(36, 48, 28, 13, 1, true);
+            } else if (surface === 'D') {
+                roundRect(20, 20, 60, 8, 1, true);
+                roundRect(20, 48, 60, 8, 1, true);
+            }
+
+            // Draw user markings on top
+            ctx.drawImage(userCanvas, 0, 0, W, H);
+
+            return tempCanvas.toDataURL('image/png');
+        }
+
+        /* SYSTEM SPECS & BATTERY LOGIC */
+        if (navigator.getBattery) {
+            navigator.getBattery().then(bat => {
+                function updateBat() {
+                    const pct = Math.round(bat.level * 100);
+                    const chg = bat.charging ? "充電中 ⚡" : "未充電 (電池供電)";
+                    const navBat = document.getElementById('navBatteryStatus');
+                    const batPct = document.getElementById('batPercent');
+                    const batChg = document.getElementById('batCharging');
+                    const batEst = document.getElementById('batTimeEstimate');
+
+                    if (navBat) navBat.textContent = `電池: ${pct}% (${bat.charging ? '⚡' : '🔋'})`;
+                    if (batPct) batPct.textContent = `${pct} %`;
+                    if (batChg) batChg.textContent = chg;
+                    
+                    if (batEst) {
+                        if (bat.chargingTime !== Infinity && bat.chargingTime > 0) {
+                            batEst.textContent = `充滿約需 ${Math.round(bat.chargingTime / 60)} 分鐘`;
+                        } else if (bat.dischargingTime !== Infinity && bat.dischargingTime > 0) {
+                            batEst.textContent = `剩餘可用約 ${Math.round(bat.dischargingTime / 60)} 分鐘`;
+                        } else {
+                            batEst.textContent = `運作正常`;
+                        }
+                    }
+                }
+                updateBat();
+                bat.addEventListener('levelchange', updateBat);
+                bat.addEventListener('chargingchange', updateBat);
+            });
+        }
+
+        function copySysReportPrompt() {
+            const cmd = `powershell -Command "Get-CimInstance Win32_Bios | Select-Object SerialNumber, SMBIOSBIOSVersion; Get-CimInstance Win32_ComputerSystem | Select-Object Manufacturer, Model; powercfg /batteryreport"`;
+            copyTextToClipboard(cmd, "已複製 Windows 序號/型號與電池報告查詢指令！按下 Win+R 或開啟 CMD/PowerShell 貼上執行即可。");
+        }
+
+        function copyBatteryReportCmd() {
+            const cmd = `powercfg /batteryreport`;
+            copyTextToClipboard(cmd, "已複製 powercfg /batteryreport 指令！貼入 Windows Terminal 執行可獲得原廠設計電量 vs 損耗報告。");
+        }
+
+        function copyTextToClipboard(text, msg) {
+            const textArea = document.createElement("textarea");
+            textArea.value = text;
+            document.body.appendChild(textArea);
+            textArea.select();
+            try {
+                document.execCommand('copy');
+                showToast(msg, "success");
+            } catch (err) {
+                showToast("複製失敗，請手動複製", "error");
+            }
+            document.body.removeChild(textArea);
+        }
+
+        let frameTimes = [];
+        function measureFPS() {
+            const now = performance.now();
+            frameTimes.push(now);
+            if (frameTimes.length > 30) {
+                const hz = Math.round(1000 / ((frameTimes[frameTimes.length - 1] - frameTimes[0]) / (frameTimes.length - 1)));
+                const navFps = document.getElementById('navFpsStatus');
+                const sysHz = document.getElementById('sysHzText');
+                if (navFps) navFps.textContent = `刷新率: ${hz} Hz`;
+                if (sysHz) sysHz.textContent = `${hz} Hz`;
+            } else {
+                requestAnimationFrame(measureFPS);
+            }
+        }
+
+        /* GENERATE PDF REPORT LOGIC */
+        function generatePDFReport() {
+            const model = document.getElementById('reportModel')?.value.trim() || '未填寫筆電型號';
+            const sn = document.getElementById('reportSN')?.value.trim() || '未填寫 S/N 序號';
+            const engineer = document.getElementById('reportEngineer')?.value.trim() || 'Q哥工程師';
+            const batHealth = document.getElementById('batHealthInput')?.value.trim() || '100 %';
+
+            document.getElementById('rptModel').textContent = model;
+            document.getElementById('rptSN').textContent = sn;
+            document.getElementById('rptEngineer').textContent = engineer;
+            document.getElementById('rptBatHealth').textContent = batHealth;
+
+            // Date & Report Number
+            const now = new Date();
+            const dateStr = `${now.getFullYear()}/${String(now.getMonth() + 1).padStart(2, '0')}/${String(now.getDate()).padStart(2, '0')}`;
+            const rptNoStr = `QB-${now.getFullYear()}${String(now.getMonth() + 1).padStart(2, '0')}${String(now.getDate()).padStart(2, '0')}-${Math.floor(100 + Math.random() * 900)}`;
+            
+            document.getElementById('rptDate').textContent = dateStr;
+            document.getElementById('rptNo').textContent = rptNoStr;
+
+            function getTestStatus(normalId, failConfigs, noteId) {
+                const isNormal = document.getElementById(normalId)?.checked;
+                const noteVal = document.getElementById(noteId)?.value.trim();
+                let selectedFails = [];
+
+                failConfigs.forEach(cfg => {
+                    if (document.getElementById(cfg.id)?.checked) {
+                        selectedFails.push(cfg.text);
+                    }
+                });
+
+                let statusText = isNormal ? "功能完全正常" : (selectedFails.join("、") || "檢測有異常");
+                if (noteVal) statusText += ` (${noteVal})`;
+
+                return {
+                    isPass: isNormal && selectedFails.length === 0,
+                    text: statusText
+                };
+            }
+
+            // 7 Main Hardware Tests Status Gathering
+            const testResults = [
+                {
+                    name: "1. 螢幕壞點與色彩",
+                    data: getTestStatus('chkScrNormal', [
+                        { id: 'chkScrBright', text: '有亮點' },
+                        { id: 'chkScrDead', text: '有暗點/壞點' },
+                        { id: 'chkScrFlicker', text: '螢幕閃爍/殘影' },
+                        { id: 'chkScrBleed', text: '漏光/偏色' }
+                    ], 'noteScrText')
+                },
+                {
+                    name: "2. 喇叭 (揚聲器) 聲道",
+                    data: getTestStatus('chkSpkNormal', [
+                        { id: 'chkSpkLeftSilent', text: '左聲道無聲' },
+                        { id: 'chkSpkRightSilent', text: '右聲道無聲' },
+                        { id: 'chkSpkDistort', text: '雜音/破音' }
+                    ], 'noteSpkText')
+                },
+                {
+                    name: "3. 麥克風收音波段",
+                    data: getTestStatus('chkMicNormal', [
+                        { id: 'chkMicSilent', text: '麥克風無聲音' },
+                        { id: 'chkMicNoise', text: '雜音過大/音量過小' }
+                    ], 'noteMicText')
+                },
+                {
+                    name: "4. 鍵盤全鍵位與鬼鍵",
+                    data: getTestStatus('chkKbdNormal', [
+                        { id: 'chkKbdDeadKey', text: '部分按鍵無反應' },
+                        { id: 'chkKbdGhosting', text: '按鍵衝突/連點' }
+                    ], 'noteKbdText')
+                },
+                {
+                    name: "5. 筆電鏡頭 (Webcam)",
+                    data: getTestStatus('chkCamNormal', [
+                        { id: 'chkCamNoSignal', text: '鏡頭無訊號' },
+                        { id: 'chkCamBlur', text: '畫面模糊/偏色' }
+                    ], 'noteCamText')
+                },
+                {
+                    name: "6. 觸控板與滑鼠動作",
+                    data: getTestStatus('chkPadNormal', [
+                        { id: 'chkPadBtnNoResp', text: '左右按鍵無反應' },
+                        { id: 'chkPadLag', text: '滑動不順/跳動' }
+                    ], 'notePadText')
+                },
+                {
+                    name: "7. Wi-Fi 與藍牙 (Bluetooth)",
+                    data: getTestStatus('chkWifiBtNormal', [
+                        { id: 'chkWifiBtNoBt', text: '藍牙無反應/無法搜尋' },
+                        { id: 'chkWifiBtNoWifi', text: 'Wi-Fi無法搜尋/斷線' },
+                        { id: 'chkWifiBtWeakSignal', text: '訊號偏弱' }
+                    ], 'noteWifiBtText')
+                }
+            ];
+
+            const tbody = document.getElementById('rptTableBody');
+            tbody.innerHTML = '';
+
+            testResults.forEach(item => {
+                const tr = document.createElement('tr');
+                const isPass = item.data.isPass;
+                const statusBadge = isPass 
+                    ? `<span class="px-2 py-0.5 rounded bg-emerald-100 text-emerald-800 font-bold border border-emerald-300">良好 PASS</span>`
+                    : `<span class="px-2 py-0.5 rounded bg-rose-100 text-rose-800 font-bold border border-rose-300">待修 FAIL</span>`;
+
+                tr.innerHTML = `
+                    <td class="p-2 border border-slate-200 font-bold">${item.name}</td>
+                    <td class="p-2 border border-slate-200 text-slate-700">${item.data.text}</td>
+                    <td class="p-2 border border-slate-200 text-center">${statusBadge}</td>
+                `;
+                tbody.appendChild(tr);
+            });
+
+            // Export Appearance Canvases merged with Laptop Outlines to Report Images
+            ['A', 'B', 'C', 'D'].forEach(s => {
+                const img = document.getElementById(`rptImg${s}`);
+                if (img) {
+                    img.src = generateCompositeSurfaceImage(s);
+                }
+            });
+
+            // Build Appearance Text Summary
+            const hingeNormal = document.getElementById('chkHingeNormal')?.checked;
+            const screwNormal = document.getElementById('chkScrewNormal')?.checked;
+            const bodyNormal = document.getElementById('chkBodyNormal')?.checked;
+            const chargerIncluded = document.getElementById('chkChargerIncluded')?.checked;
+            const appNote = document.getElementById('noteAppText')?.value.trim();
+
+            let appSummaryHtml = `
+                <div>• 轉軸與螺絲: <span class="font-bold ${hingeNormal ? 'text-emerald-700' : 'text-rose-700'}">${hingeNormal ? '轉軸開合平順' : '轉軸鬆動/有異音'}</span>、<span class="font-bold ${screwNormal ? 'text-emerald-700' : 'text-rose-700'}">${screwNormal ? '底殼螺絲完整' : '底殼螺絲缺少/滑絲'}</span></div>
+                <div>• 機身與配件: <span class="font-bold ${bodyNormal ? 'text-emerald-700' : 'text-rose-700'}">${bodyNormal ? '外觀完好無明顯傷痕' : '外殼有傷痕/掉漆'}</span>、<span class="font-bold ${chargerIncluded ? 'text-emerald-700' : 'text-amber-700'}">${chargerIncluded ? '隨附電源充電器' : '未隨附充電器(僅單機)'}</span></div>
+            `;
+            if (appNote) {
+                appSummaryHtml += `<div class="text-slate-600">• 外觀配件備註: ${appNote}</div>`;
+            }
+
+            document.getElementById('rptAppTextSummary').innerHTML = appSummaryHtml;
+
+            document.getElementById('reportModal').classList.remove('hidden');
+        }
+
+        function closeReportModal() {
+            document.getElementById('reportModal').classList.add('hidden');
+        }
+
+        function triggerPrintPDF() {
+            window.print();
+        }
+
+        /* INITIAL ONLOAD HANDLER */
+        window.onload = function() {
+            requestAnimationFrame(measureFPS);
+            const sysRes = document.getElementById('sysResText');
+            const sysOs = document.getElementById('sysOsPlatform');
+            if (sysRes) sysRes.textContent = `${window.screen.width} x ${window.screen.height}`;
+            if (sysOs) sysOs.textContent = navigator.platform || "Win32";
+            testNetworkPing();
+        };
+
+        window.addEventListener('resize', () => {
+            setupTrackpadCanvas();
+            setupMicCanvas();
+            setupAppearanceCanvases();
+        });
+    </script>
+</body>
+</html>
